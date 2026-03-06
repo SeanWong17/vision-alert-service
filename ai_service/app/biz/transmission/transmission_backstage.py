@@ -6,7 +6,7 @@ import time
 import multiprocessing
 from concurrent.futures import ThreadPoolExecutor
 
-from app.routers.ai import analysis_water_all
+from app.routers.people import run_people_async_pipeline
 from app.utilities.config import config
 from app.utilities.logging import logger
 from app.utilities.redis import ZHYRedis
@@ -38,7 +38,7 @@ class TransmissionBackstage(Singletion):
                 return
 
             image = StatusItem(**json.loads(image_json))
-            results = analysis_water_all(file_name, tasks, file_path)
+            results = run_people_async_pipeline(file_name, tasks, file_path)
 
             item = AlarmResultimage()
             item.fileuuid = image_id

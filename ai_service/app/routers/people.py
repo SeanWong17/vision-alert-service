@@ -8,7 +8,7 @@ import time
 import threading
 import os.path as op
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 from app.utilities.logging import logger
 from app.utilities.config import ZHYConfigParser
@@ -23,18 +23,18 @@ else:
 
 try:
     if config_json.get("water_task", {}).get("ultrahigh_people_task", True):
-        from app.water_post_process.General_DrowingPrevent.cal_drowning_prevent import drowing_prevent
+        from app.pipeline.people.engine import people_engine
     else:
-        drowing_prevent = None
+        people_engine = None
 except Exception:
-    drowing_prevent = None
+    people_engine = None
     logger.exception("启用 people 模型遇到问题")
 
 lock = threading.Lock()
 config = ZHYConfigParser().config
 
 
-def delete_image_files_older_by_days(directory: str, days: int = 15):
+def cleanup_old_images(directory: str, days: int = 15):
     last_run_file = os.path.join(directory, ".last_run")
 
     if os.path.exists(last_run_file):
@@ -51,7 +51,7 @@ def delete_image_files_older_by_days(directory: str, days: int = 15):
     now = datetime.now()
     for root, _, files in os.walk(directory):
         for file in files:
-            if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+            if file.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".bmp")):
                 file_path = os.path.join(root, file)
                 if os.path.isfile(file_path):
                     file_mod_time = datetime.fromtimestamp(os.path.getmtime(file_path))
@@ -59,7 +59,7 @@ def delete_image_files_older_by_days(directory: str, days: int = 15):
                         os.remove(file_path)
 
 
-def _parse_people_tasks(people_tasks: Any) -> List[Dict[str, Any]]:
+def parse_people_tasks(people_tasks: Any) -> List[Dict[str, Any]]:
     if isinstance(people_tasks, str):
         people_tasks = json.loads(people_tasks)
 
@@ -72,62 +72,56 @@ def _parse_people_tasks(people_tasks: Any) -> List[Dict[str, Any]]:
     return parsed_tasks
 
 
-def _normalize_coordinates(coordinates: Any):
+def normalize_coordinates(coordinates: Any):
     if not isinstance(coordinates, list) or len(coordinates) < 4:
         return [-1, -1, -1, -1]
     return coordinates
 
 
-def analysis_water_all(file_name: str, tasks: Dict[str, Any], file_path: str, save_res_img: bool = True):
-    t1 = time.time()
+def run_people_async_pipeline(file_name: str, tasks: Dict[str, Any], file_path: str, save_result_image: bool = True):
+    start_at = time.time()
 
     people_tasks = tasks.get("ultrahigh_people_task") if isinstance(tasks, dict) else None
     if not people_tasks:
         logger.warning("tasks 中未找到 ultrahigh_people_task")
         return []
 
-    parsed_tasks = _parse_people_tasks(people_tasks)
-    coordinates = _normalize_coordinates(parsed_tasks[0].get("params", {}).get("coordinate") if parsed_tasks else None)
+    parsed_tasks = parse_people_tasks(people_tasks)
+    coordinates = normalize_coordinates(parsed_tasks[0].get("params", {}).get("coordinate") if parsed_tasks else None)
 
     result, raw_det_res, res_image = [], [], None
+    with lock:
+        result, res_image, raw_det_res = run_people_sync_inference(parsed_tasks, file_path, coordinates)
 
-    lock.acquire()
-    try:
-        result, res_image, raw_det_res = analysis_water_people(parsed_tasks, file_path, coordinates)
-    finally:
-        lock.release()
-
-    result_path = op.join(config.filepath.result, 'ultrahigh_people_task')
+    result_path = op.join(config.filepath.result, "ultrahigh_people_task")
     if len(raw_det_res) > 0:
         file_base, file_ext = os.path.splitext(file_name)
         file_name = f"{file_base}_ALARM{file_ext}"
 
-    if save_res_img and res_image is not None:
-        position = file_name.split('_')[0] if '_' in file_name else 'other'
+    if save_result_image and res_image is not None:
+        position = file_name.split("_")[0] if "_" in file_name else "other"
         save_path = os.path.join(result_path, position)
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-        save_img_path = os.path.join(save_path, file_name)
-        cv2.imwrite(save_img_path, res_image)
+        cv2.imwrite(os.path.join(save_path, file_name), res_image)
+        cleanup_old_images(config.filepath.result)
+        cleanup_old_images(config.filepath.upload)
 
-        delete_image_files_older_by_days(config.filepath.result)
-        delete_image_files_older_by_days(config.filepath.upload)
-
-    logger.info(f"-----people analysis time：{time.time()-t1}----------")
+    logger.info(f"-----people analysis time: {time.time() - start_at}----------")
     return result
 
 
-def analysis_water_people(people_tasks: List[Dict[str, Any]], file_path: str, coordinates: Any):
+def run_people_sync_inference(people_tasks: List[Dict[str, Any]], file_path: str, coordinates: Any):
     logger.info(f"----------people_tasks----------{people_tasks}")
     results, res_image, raw_det_res = [], [], []
 
     try:
-        if drowing_prevent is None:
+        if people_engine is None:
             raise RuntimeError("people model is disabled or failed to load")
 
-        coordinates = _normalize_coordinates(coordinates)
-        det_result, res_image, water_color_dict, shoreline_points, raw_det_res = drowing_prevent.cal_drowing_judgement(file_path, coordinates)
+        coordinates = normalize_coordinates(coordinates)
+        det_result, res_image, water_color_dict, shoreline_points, raw_det_res = people_engine.analyze_image(file_path, coordinates)
 
         detect_objects = [{"water_color_dict": water_color_dict}]
 
@@ -140,8 +134,8 @@ def analysis_water_people(people_tasks: List[Dict[str, Any]], file_path: str, co
                     "tagName": tag_name,
                 })
 
-        res_shoreline_points = [[list(tup) for tup in sublist] for sublist in shoreline_points]
-        detect_objects.append({"shoreline_points": res_shoreline_points})
+        shoreline = [[list(point) for point in sublist] for sublist in shoreline_points]
+        detect_objects.append({"shoreline_points": shoreline})
 
         for task in people_tasks:
             task_limit = int(task.get("params", {}).get("limit", 0))

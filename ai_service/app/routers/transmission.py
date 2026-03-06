@@ -21,7 +21,7 @@ from app.utilities.config import ZHYConfigParser
 from app.biz.transmission.transmission import TransmissionBiz
 from app.models.transmission import UploadRequestItem, RequestStatus, ResultConfirmItem
 from app.models.data_analysis import DataAnalysisKey
-from app.routers.ai import analysis_water_people
+from app.routers.people import run_people_sync_inference
 
 redis = ZHYRedis()
 config = ZHYConfigParser().config
@@ -132,7 +132,7 @@ def image_analysis_form(
         people_tasks = normalized_tasks["ultrahigh_people_task"]
         coordinates = people_tasks[0].get("params", {}).get("coordinate")
 
-        result, img_res, raw_det_res = analysis_water_people(people_tasks, file_path, coordinates)
+        result, img_res, raw_det_res = run_people_sync_inference(people_tasks, file_path, coordinates)
 
         result_path = op.join(config.filepath.result, 'ultrahigh_people_task')
         position = file_name.split('_')[0] if '_' in file_name else 'other'
