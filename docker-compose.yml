@@ -1,0 +1,29 @@
+version: '2.7.0'
+
+services:
+  shipinjiankong_test:
+    image: zhyai-water-server:v1.0
+    container_name: water_general-test
+    runtime: nvidia
+    restart: always
+    environment:
+      - PROCESS=1
+      - NVIDIA_VISIBLE_DEVICES=3
+    ports:
+      - "10095:9000"
+    volumes:
+      - /data/wangshuo/upload/zhiyangshangshuiai/model_deploy/ai_service:/root/zhy_ai_service
+      - /data/wangshuo/upload/zhiyangshangshuiai/model_deploy/images:/root/.zhyai/images
+      - /data/wangshuo/upload/zhiyangshangshuiai/model_deploy/zhyai_0:/root/.zhyai
+      - /data/wangshuo/upload/zhiyangshangshuiai/model_deploy/g_error.log:/root/g_error.log
+    mem_limit: 32g
+
+
+# 使用 zhyai-water-server:v1.0 镜像
+# 常用命令：
+      # 创建容器：docker-compose up -d 
+      # 进入容器：docker exec -it water_general-test /bin/bash
+      # 查看日志前100行：tail -n 100 g_error.log 
+      # 安装缺失的部分依赖：pip install openpiv
+      # 创建目录: mkdir -p  /root/.config/Ultralytics/ 
+      # 复制文件到容器： docker cp /data/wangshuo/.config/Ultralytics/Arial.ttf   water_general-tes:/root/.config/Ultralytics/  

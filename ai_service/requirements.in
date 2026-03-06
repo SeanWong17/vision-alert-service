@@ -1,0 +1,22 @@
+# Web service
+fastapi
+uvicorn
+click
+
+# Core
+numpy
+opencv-python-headless
+pydantic<2
+redis
+requests
+Pillow
+python-multipart
+apscheduler
+shapely
+
+# Inference stack
+torch
+ultralytics
+mmengine
+mmsegmentation
+# mmcv is CUDA/torch-build specific; install via openmim (see MIGRATION_EXTERNAL_DEPS.md)

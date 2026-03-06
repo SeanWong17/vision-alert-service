@@ -1,0 +1,5 @@
+# Pin runtime APIs that this service currently targets.
+mmengine==0.8.4
+mmcv==2.0.0rc4
+mmsegmentation==1.2.2
+ultralytics==8.3.0
