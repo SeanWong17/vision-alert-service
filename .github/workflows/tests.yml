@@ -24,6 +24,13 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-ci.txt
 
-      - name: Run unit tests
+      - name: Syntax check
         run: |
-          python -m unittest discover -s tests -p 'test_*.py' -v
+          python -m compileall -q app tests scripts
+
+      - name: Run unit tests
+        env:
+          CI_MIN_EXECUTED_TESTS: "10"
+          CI_MAX_SKIP_RATIO: "0.40"
+        run: |
+          python scripts/ci_unittest_gate.py

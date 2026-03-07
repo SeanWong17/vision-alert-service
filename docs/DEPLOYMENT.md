@@ -106,3 +106,8 @@ ALERT_LICENSE_ALLOW_HOSTNAME_FALLBACK: "false"
 1. 临时将 `ALERT_CONFIG_STRICT=false` 启动服务，确保业务不中断。
 2. 修复 `runtime/config.json` 后恢复 `ALERT_CONFIG_STRICT=true`。
 3. 重启服务并确认配置已生效。
+
+## 6. 生产运行建议
+- 使用 `/healthz` 与 `/readyz` 作为存活/就绪探针。
+- 采集 `/metrics` 到 Prometheus 并配置告警。
+- 告警阈值、故障演练、容量基线见 `docs/OPERATIONS.md`。

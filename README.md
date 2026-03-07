@@ -14,6 +14,7 @@ python3 main.py --host 0.0.0.0 --port 8011
 - 架构与调用链：`docs/CALL_CHAIN.md`
 - API 接口文档：`docs/API.md`
 - 部署与 Docker：`docs/DEPLOYMENT.md`
+- 运行与运维基线：`docs/OPERATIONS.md`
 - 代码保护与授权：`docs/PROTECTION.md`
 
 ## 配置与授权
