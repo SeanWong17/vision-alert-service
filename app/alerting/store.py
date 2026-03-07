@@ -20,7 +20,15 @@ except Exception:  # pragma: no cover
 
 
 class AlertStore:
-    """异步任务与结果的持久化抽象。"""
+    """异步任务与结果的持久化抽象。
+
+    结果存储采用两种后端：
+    - 内存模式：用于本地联调（单进程）
+    - Redis 模式：result stream + ack map
+      1) save_result -> XADD
+      2) fetch_results -> XREADGROUP/XAUTOCLAIM
+      3) confirm_results -> XACK + XDEL
+    """
 
     def __init__(self, settings: AlertSettings):
         """初始化存储层，优先连接 Redis，失败时回退内存。"""
@@ -144,6 +152,8 @@ class AlertStore:
             rows: List[dict] = []
 
             def _consume(resp_items) -> None:
+                # 把 stream entry 转为业务行，同时记录 imageId -> entryId，
+                # 便于后续 confirm 时执行 XACK/XDEL。
                 for _, entries in resp_items or []:
                     for entry_id, fields in entries:
                         payload = fields.get("payload")
@@ -188,6 +198,7 @@ class AlertStore:
 
             remaining = safe_limit - len(rows)
             if remaining > 0:
+                # 最后读取新消息（'>'），保证实时性。
                 new_resp = self.redis.xreadgroup(
                     groupname=group_name,
                     consumername=self._consumer_name,
@@ -197,6 +208,7 @@ class AlertStore:
                 _consume(new_resp)
 
             try:
+                # XPENDING 用于粗略判断是否还有可消费数据，支撑 hasMore。
                 pending_info = self.redis.xpending(stream_key, group_name)
                 pending_count = int(pending_info.get("pending", 0))
             except Exception:
@@ -229,6 +241,7 @@ class AlertStore:
             valid_entry_ids = [entry_id for entry_id in entry_ids if entry_id]
 
             if valid_entry_ids:
+                # 先 ACK 再删除消息体，避免 PEL 污染。
                 self.redis.xack(stream_key, group_name, *valid_entry_ids)
                 self.redis.xdel(stream_key, *valid_entry_ids)
 

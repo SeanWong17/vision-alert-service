@@ -1,4 +1,10 @@
-"""配置中心模块：定义配置模型、加载器与告警运行参数。"""
+"""配置中心模块：定义配置模型、加载器与告警运行参数。
+
+配置来源优先级（高 -> 低）：
+1. 环境变量（部署时临时覆盖）
+2. runtime/config.json（长期配置）
+3. 代码默认值（兜底）
+"""
 
 from __future__ import annotations
 
@@ -129,6 +135,7 @@ class ConfigLoader:
             with open(path, "r", encoding="utf-8") as fp:
                 return AppConfig(**json.load(fp))
         except Exception:
+            # 配置文件损坏时回退默认，避免服务直接不可启动。
             return AppConfig()
 
     @property
@@ -241,6 +248,7 @@ def load_alert_settings() -> AlertSettings:
 
     alert_cfg = settings.alert
     model_root = _resolve_latest_model_root(settings.filepath.model_root)
+    # 这里把“配置文件值 + 环境变量覆盖”统一折叠到运行时 dataclass，避免业务层关心来源。
     return AlertSettings(
         upload_root=settings.filepath.upload,
         result_root=settings.filepath.result,

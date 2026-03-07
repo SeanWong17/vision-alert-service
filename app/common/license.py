@@ -1,4 +1,16 @@
-"""License 校验模块：签名、有效期、机器绑定。"""
+"""License 校验模块：签名、有效期、机器绑定。
+
+license 文件约定（JSON）：
+{
+  "subject": "customer_a",
+  "issuedAt": "2026-01-01T00:00:00Z",
+  "expiresAt": "2027-01-01T00:00:00Z",
+  "machineId": "xxxx",
+  "signature": "base64..."
+}
+
+签名范围为除 signature 外的所有字段，按 JSON canonical（sort_keys=True + 紧凑分隔符）序列化。
+"""
 
 from __future__ import annotations
 
@@ -45,6 +57,7 @@ def _parse_iso8601(value: str) -> datetime:
 def _read_machine_id() -> str:
     """读取本机标识。"""
 
+    # Linux 常见 machine-id 路径；容器场景通常会挂载或继承其中一个。
     candidates = ["/etc/machine-id", "/var/lib/dbus/machine-id"]
     for path in candidates:
         if os.path.exists(path):
@@ -55,6 +68,7 @@ def _read_machine_id() -> str:
                     return value
             except Exception:
                 continue
+    # 兜底使用 hostname。安全性弱于 machine-id，仅用于保障可运行性。
     return os.getenv("HOSTNAME", "").strip()
 
 
@@ -141,6 +155,7 @@ def validate_license(settings: LicenseSettings) -> LicenseClaims:
         raise LicenseError(f"license expired at {claims.expires_at.isoformat()}")
 
     if settings.require_machine_binding:
+        # 设备绑定策略：license 中 machineId 必须与当前设备一致。
         current_machine = _read_machine_id()
         if not current_machine:
             raise LicenseError("cannot read machine id")

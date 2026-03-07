@@ -46,6 +46,7 @@ class AlertService:
         if not base or base in {".", ".."}:
             raise AlertingError(message="invalid filename")
 
+        # 文件名仅允许白名单字符，其他字符统一替换。
         safe = re.sub(r"[^A-Za-z0-9._-]", "_", base)
         if not safe or safe in {".", ".."}:
             raise AlertingError(message="invalid filename")
@@ -65,6 +66,7 @@ class AlertService:
         if not os.path.isdir(root_dir):
             return removed
 
+        # bottom-up 遍历便于在删除文件后继续删除空目录。
         for current_root, dirs, files in os.walk(root_dir, topdown=False):
             for name in files:
                 path = os.path.join(current_root, name)
@@ -118,9 +120,11 @@ class AlertService:
                         break
                     total += len(chunk)
                     if total > self.settings.upload_max_bytes:
+                        # 超限立即终止；异常处理会删除半写入文件。
                         raise AlertingError(message="file too large")
                     fh.write(chunk)
         except Exception:
+            # 写入失败时清理半成品，避免磁盘遗留脏文件。
             if os.path.exists(file_path):
                 os.remove(file_path)
             raise

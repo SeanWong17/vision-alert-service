@@ -1,4 +1,9 @@
-"""License 生成与签名工具（Ed25519）。"""
+"""License 生成与签名工具（Ed25519）。
+
+用途：
+1) 生成密钥对：私钥用于签发，公钥用于服务端校验
+2) 生成带签名的 license.json
+"""
 
 from __future__ import annotations
 
@@ -13,6 +18,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 
 def _canonical_payload(payload: dict) -> bytes:
+    """与服务端一致的签名原文序列化方式。"""
+
     text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
     return text.encode("utf-8")
 
@@ -46,6 +53,8 @@ def cmd_gen_key(args) -> None:
 
 
 def cmd_sign(args) -> None:
+    """签发 license：把声明字段签名后写入 signature。"""
+
     with open(args.private_key, "rb") as fp:
         private_key = serialization.load_pem_private_key(fp.read(), password=None)
 
@@ -66,6 +75,8 @@ def cmd_sign(args) -> None:
 
 
 def main() -> None:
+    """命令行入口。"""
+
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
 

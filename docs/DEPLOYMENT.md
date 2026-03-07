@@ -93,3 +93,4 @@ ALERT_LICENSE_PUBLIC_KEY_PATH: /root/.ai_alerting/license/public_key.pem
 说明：
 - `docker-compose` 只能编排和传配置，无法单独实现“代码加密”。
 - 代码保护需在镜像构建阶段完成（如 `Dockerfile.protected` 的 PyArmor 流程）。
+- 更详细的威胁模型、流程和运维建议见：`docs/PROTECTION.md`。

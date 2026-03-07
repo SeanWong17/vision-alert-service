@@ -26,6 +26,7 @@ async def app_lifespan(_app: FastAPI):
 
     license_settings = load_license_settings()
     if license_settings.enabled:
+        # 启动期进行授权校验：失败时默认阻止服务启动（fail_open=false）。
         try:
             claims = validate_license(license_settings)
             logger.info("license validated subject=%s expires_at=%s", claims.subject, claims.expires_at.isoformat())
