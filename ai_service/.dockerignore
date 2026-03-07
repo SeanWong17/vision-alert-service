@@ -1,6 +1,0 @@
-__pycache__/
-*.pyc
-.pytest_cache/
-.git/
-runtime/app_data/models/*/*.pt
-runtime/app_data/models/*/*.pth

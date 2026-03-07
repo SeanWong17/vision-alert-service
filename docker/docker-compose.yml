@@ -3,8 +3,8 @@ version: "3.9"
 services:
   ai_alerting:
     build:
-      context: ../ai_service
-      dockerfile: ../docker/Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
     container_name: ai_alerting_service
     restart: unless-stopped
     ports:
@@ -14,7 +14,7 @@ services:
       - ALERT_DET_DEVICE=0
       - ALERT_SEG_DEVICE=cuda:0
     volumes:
-      - ../ai_service/runtime/app_data:/root/.ai_alerting
+      - ../runtime:/root/.ai_alerting
     depends_on:
       - redis
 
