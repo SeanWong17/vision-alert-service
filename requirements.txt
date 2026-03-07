@@ -14,7 +14,7 @@ cryptography
 
 # 推理运行依赖
 torch
-ultralytics==8.3.0
-mmengine==0.8.4
-mmsegmentation==1.2.2
+ultralytics
+mmengine
+mmsegmentation
 # mmcv 需要与 CUDA/PyTorch 版本匹配，建议在部署环境用 openmim 单独安装
