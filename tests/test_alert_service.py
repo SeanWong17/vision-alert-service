@@ -89,6 +89,12 @@ class AlertServiceTest(unittest.TestCase):
         self.store.redis = None
         self.service = AlertService(settings, self.store, _FakePipeline())
 
+    @staticmethod
+    def _jpeg_bytes(payload_size: int = 32) -> bytes:
+        """构造满足 JPEG 魔数的测试字节流。"""
+
+        return b"\xff\xd8\xff" + (b"x" * max(0, payload_size - 3))
+
     def tearDown(self):
         """清理临时目录。"""
 
@@ -97,7 +103,7 @@ class AlertServiceTest(unittest.TestCase):
     def test_submit_async(self):
         """异步提交后队列长度应增加。"""
 
-        image = self.DummyUpload("cam_1.jpg", b"123")
+        image = self.DummyUpload("cam_1.jpg", self._jpeg_bytes())
         file_upload = {"filename": "cam_1.jpg", "sessionId": "S1"}
         tasks = [{"id": 1, "params": {"limit": 1}}]
 
@@ -108,7 +114,7 @@ class AlertServiceTest(unittest.TestCase):
     def test_analyze_sync(self):
         """同步分析应返回任务结果列表。"""
 
-        image = self.DummyUpload("cam_2.jpg", b"456", content_type="image/jpeg")
+        image = self.DummyUpload("cam_2.jpg", self._jpeg_bytes(), content_type="image/jpeg")
         tasks = [{"id": 7, "params": {"limit": 0}}]
 
         result = self.service.analyze_sync(image, "cam_2.jpg", tasks)
@@ -144,7 +150,7 @@ class AlertServiceTest(unittest.TestCase):
                 self._offset = end
                 return self._data[start:end]
 
-        payload = b"x" * (2 * 1024 * 1024 + 123)
+        payload = b"\xff\xd8\xff" + (b"x" * (2 * 1024 * 1024 + 120))
         stream = _ChunkReadable(payload)
         upload = self.DummyUpload("cam_3.jpg", b"")
         upload.file = stream
@@ -164,7 +170,7 @@ class AlertServiceTest(unittest.TestCase):
     def test_submit_async_sanitizes_filename(self):
         """异步上传应净化文件名，避免路径穿越。"""
 
-        image = self.DummyUpload("origin.jpg", b"123")
+        image = self.DummyUpload("origin.jpg", self._jpeg_bytes())
         result = self.service.submit_async(
             image,
             {"filename": "../unsafe name?.jpg", "sessionId": "S4"},
@@ -195,7 +201,7 @@ class AlertServiceTest(unittest.TestCase):
         from app.common.errors import AlertingError
 
         self.service.settings.upload_max_bytes = 16
-        image = self.DummyUpload("cam_oversize.jpg", b"x" * 64, content_type="image/jpeg")
+        image = self.DummyUpload("cam_oversize.jpg", self._jpeg_bytes(64), content_type="image/jpeg")
 
         with self.assertRaises(AlertingError):
             self.service.submit_async(
@@ -269,11 +275,24 @@ class AlertServiceTest(unittest.TestCase):
     def test_analyze_sync_raises_when_result_image_write_fails(self):
         """结果图保存失败时应抛异常，避免静默成功。"""
 
-        image = self.DummyUpload("cam_4.jpg", b"456", content_type="image/jpeg")
+        image = self.DummyUpload("cam_4.jpg", self._jpeg_bytes(), content_type="image/jpeg")
         tasks = [{"id": 8, "params": {"limit": 0}}]
         with patch("app.alerting.service.cv2.imwrite", return_value=False):
             with self.assertRaises(RuntimeError):
                 self.service.analyze_sync(image, "cam_4.jpg", tasks)
+
+    def test_submit_async_rejects_forged_image_mime(self):
+        """声明为图片但内容非图片时应拒绝。"""
+
+        from app.common.errors import ApiError
+
+        image = self.DummyUpload("fake.jpg", b"not-an-image", content_type="image/jpeg")
+        with self.assertRaises(ApiError):
+            self.service.submit_async(
+                image,
+                {"filename": "fake.jpg", "sessionId": "S8"},
+                [{"id": 1, "params": {"limit": 1}}],
+            )
 
 
 if __name__ == "__main__":

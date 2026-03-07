@@ -51,7 +51,8 @@ class AlertWorker:
         self._stop.set()
         if self._thread.is_alive():
             self._thread.join(timeout=2)
-        self._executor.shutdown(wait=False, cancel_futures=True)
+        # 停机时不主动取消 futures，避免已出队任务丢失并长期滞留 pending。
+        self._executor.shutdown(wait=True, cancel_futures=False)
         logger.info("alert worker stopped")
 
     def is_running(self) -> bool:

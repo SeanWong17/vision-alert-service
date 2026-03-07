@@ -94,7 +94,7 @@ class AlertIntegrationTest(unittest.TestCase):
     def test_upload_worker_alarm_result(self):
         """执行完整异步流程并校验结果输出字段。"""
 
-        upload = self.DummyUpload("cam_A.jpg", b"image-bytes")
+        upload = self.DummyUpload("cam_A.jpg", b"\xff\xd8\xff" + (b"x" * 8))
         submit = self.service.submit_async(
             upload,
             {"filename": "cam_A.jpg", "sessionId": "SID-1"},

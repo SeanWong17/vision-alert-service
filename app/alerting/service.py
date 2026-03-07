@@ -60,6 +60,38 @@ class AlertService:
             raise ApiError(status_code=HTTP_422_UNPROCESSABLE_ENTITY, message="The file is not an image")
 
     @staticmethod
+    def _detect_image_kind(content_head: bytes) -> str:
+        """基于文件头魔数识别图片类型。"""
+
+        head = bytes(content_head or b"")
+        if len(head) >= 3 and head[0:3] == b"\xff\xd8\xff":
+            return "jpeg"
+        if len(head) >= 8 and head[0:8] == b"\x89PNG\r\n\x1a\n":
+            return "png"
+        return ""
+
+    def _validate_upload_magic(self, upload: UploadFile, content_head: bytes) -> None:
+        """校验上传文件真实内容与声明类型是否匹配。"""
+
+        kind = self._detect_image_kind(content_head)
+        if not kind:
+            raise ApiError(status_code=HTTP_422_UNPROCESSABLE_ENTITY, message="The file is not an image")
+
+        # 仅允许落在配置白名单中的真实图片类型。
+        kind_to_mimes = {
+            "jpeg": {"image/jpeg", "image/jpg"},
+            "png": {"image/png"},
+        }
+        allowed_mimes = {item.lower() for item in self.settings.allowed_image_types}
+        allowed_kinds = {
+            image_kind
+            for image_kind, mimes in kind_to_mimes.items()
+            if any(mime in allowed_mimes for mime in mimes)
+        }
+        if kind not in allowed_kinds:
+            raise ApiError(status_code=HTTP_422_UNPROCESSABLE_ENTITY, message="The file is not an image")
+
+    @staticmethod
     def _cleanup_older_than(root_dir: str, expire_ts: float) -> int:
         """删除目录下早于指定时间戳的文件，并清理空目录。"""
 
@@ -114,7 +146,16 @@ class AlertService:
         file_path = os.path.join(directory, file_name)
         total = 0
         try:
+            first_chunk = file_obj.file.read(1024 * 1024)
+            if not first_chunk:
+                raise AlertingError(message="empty file")
+            self._validate_upload_magic(file_obj, first_chunk)
+
             with open(file_path, "wb") as fh:
+                total += len(first_chunk)
+                if total > self.settings.upload_max_bytes:
+                    raise AlertingError(message="file too large")
+                fh.write(first_chunk)
                 while True:
                     chunk = file_obj.file.read(1024 * 1024)
                     if not chunk:

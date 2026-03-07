@@ -73,7 +73,21 @@ def create_app() -> FastAPI:
                 return response
 
         start = time.time()
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        except Exception:
+            elapsed = time.time() - start
+            metrics.observe_http(request.method, path, status.HTTP_500_INTERNAL_SERVER_ERROR, elapsed)
+            logger.info(
+                "%s %s %s request_id=%s elapsed=%.4fs",
+                request.method,
+                request.url,
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                request_id,
+                elapsed,
+            )
+            raise
+
         elapsed = time.time() - start
         response.headers["X-Process-Time"] = str(elapsed)
         response.headers["X-Request-ID"] = request_id

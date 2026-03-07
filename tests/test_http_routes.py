@@ -91,6 +91,23 @@ class UploadRouteErrorTest(unittest.TestCase):
         self.assertTrue(response.json()["requestId"])
         self.assertEqual(response.headers.get("X-Request-ID"), response.json()["requestId"])
 
+    def test_upload_unknown_error_is_recorded_in_metrics(self):
+        """抛异常请求也应计入 HTTP 指标。"""
+
+        class _Service:
+            def submit_async(self, *_args, **_kwargs):
+                raise RuntimeError("boom")
+
+        client = self._new_client(_Service())
+        _ = client.post(
+            "/api/transmission/upload",
+            files={"file": ("x.jpg", b"abc", "image/jpeg")},
+            data={"FileUpload": "{}", "tasks": "[]"},
+        )
+        metrics = client.get("/metrics")
+        self.assertEqual(metrics.status_code, 200)
+        self.assertIn('path="/api/transmission/upload",status="500"', metrics.text)
+
     def test_request_id_is_echoed_for_success(self):
         """成功请求应透传 X-Request-ID。"""
 
