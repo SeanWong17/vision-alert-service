@@ -1,49 +1,92 @@
 {
+  "__comment": "示例配置文件。注释字段使用 __comment_*，程序会忽略这些字段。",
+
   "redis": {
+    "__comment_host": "Redis 主机地址",
     "host": "127.0.0.1",
+    "__comment_port": "Redis 端口",
     "port": 6379,
+    "__comment_database": "Redis 数据库编号",
     "database": 6,
+    "__comment_password": "Redis 密码；无密码可设为 null",
     "password": null
   },
+
   "filepath": {
+    "__comment_root": "运行根目录；日志、图片、模型目录都基于该目录展开",
     "root": "/root/.ai_alerting"
   },
+
   "server": {
+    "__comment_host": "HTTP 服务监听地址",
     "host": "0.0.0.0",
+    "__comment_port": "HTTP 服务监听端口",
     "port": 8011
   },
+
   "alert": {
+    "__comment_det_model_name": "检测模型文件名（位于 models/<version>/ 下）",
     "det_model_name": "det_model.pt",
+    "__comment_seg_model_name": "分割模型权重文件名",
     "seg_model_name": "seg_model.pt",
+    "__comment_seg_config_name": "分割模型配置文件名",
     "seg_config_name": "mmseg_config.py",
+    "__comment_detector_imgsz": "检测输入尺寸 [width, height]",
     "detector_imgsz": [1280, 1280],
+    "__comment_detector_conf": "检测置信度阈值",
     "detector_conf": 0.4,
+    "__comment_detector_iou": "NMS IoU 阈值",
     "detector_iou": 0.45,
+    "__comment_detector_device": "检测模型设备（例如 0/cpu）",
     "detector_device": "0",
+    "__comment_segmentor_device": "分割模型设备（例如 cuda:0/cpu）",
     "segmentor_device": "cuda:0",
+    "__comment_queue_name": "异步任务队列名（Redis list）",
     "queue_name": "alert:queue:pending",
+    "__comment_pending_key_prefix": "待处理任务快照哈希前缀",
     "pending_key_prefix": "alert:pending",
+    "__comment_result_key_prefix": "兼容保留字段（当前 stream 模式主要使用以下 stream 前缀）",
     "result_key_prefix": "alert:result",
+    "__comment_result_stream_prefix": "异步结果 stream 前缀",
     "result_stream_prefix": "alert:result_stream",
+    "__comment_result_ack_prefix": "结果确认映射（imageId -> stream entry id）哈希前缀",
     "result_ack_prefix": "alert:result_ack",
+    "__comment_result_group_prefix": "结果消费组前缀",
     "result_group_prefix": "alert:result_group",
+    "__comment_result_claim_idle_ms": "XAUTOCLAIM 最小空闲毫秒数（超时未确认消息回收）",
     "result_claim_idle_ms": 60000,
+    "__comment_upload_max_bytes": "单文件上传大小上限（字节）",
     "upload_max_bytes": 20971520,
+    "__comment_allowed_image_types": "允许的上传 MIME 类型",
     "allowed_image_types": ["image/jpg", "image/jpeg", "image/png"],
+    "__comment_image_retention_days": "上传图与结果图保留天数",
     "image_retention_days": 30,
+    "__comment_cleanup_scan_interval_seconds": "清理过期图片扫描周期（秒）",
     "cleanup_scan_interval_seconds": 3600,
+    "__comment_default_limit": "默认告警阈值（目标数达到该值即告警）",
     "default_limit": 1,
+    "__comment_roi_default": "默认 ROI；[-1,-1,-1,-1] 表示全图",
     "roi_default": [-1, -1, -1, -1],
+    "__comment_near_water_distance_px": "近水判定距离阈值（像素）",
     "near_water_distance_px": 24,
+    "__comment_in_water_overlap_ratio": "入水判定重叠比例阈值",
     "in_water_overlap_ratio": 0.08,
+    "__comment_worker_poll_seconds": "异步 worker 空轮询间隔（秒）",
     "worker_poll_seconds": 0.05,
+    "__comment_worker_threads": "异步 worker 线程数",
     "worker_threads": 4
   },
+
   "license": {
+    "__comment_enabled": "是否启用启动期 license 校验",
     "enabled": false,
+    "__comment_license_path": "license 文件路径（容器内路径）",
     "license_path": "/root/.ai_alerting/license/license.json",
+    "__comment_public_key_path": "Ed25519 公钥路径（容器内路径）",
     "public_key_path": "/root/.ai_alerting/license/public_key.pem",
+    "__comment_fail_open": "校验失败时是否放行启动（true=放行，false=阻止启动）",
     "fail_open": false,
+    "__comment_require_machine_binding": "是否强制设备绑定（校验 machineId）",
     "require_machine_binding": true
   }
 }
