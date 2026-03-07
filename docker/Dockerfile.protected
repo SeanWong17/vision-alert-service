@@ -1,0 +1,47 @@
+# 受保护镜像构建（PyArmor）
+FROM python:3.10-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /src
+COPY requirements.txt ./
+RUN python -m pip install --upgrade pip && \
+    python -m pip install -r requirements.txt pyarmor
+
+COPY . .
+
+# 生成受保护代码，输出到 /build/protected
+RUN pyarmor gen -r -O /build/protected app main.py
+
+FROM python:3.10-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libglib2.0-0 \
+    libsm6 \
+    libxrender1 \
+    libxext6 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt ./
+RUN python -m pip install --upgrade pip && \
+    python -m pip install -r requirements.txt
+
+# 仅复制受保护产物，不复制源码
+COPY --from=builder /build/protected /app
+
+RUN mkdir -p /root/.ai_alerting/log \
+    /root/.ai_alerting/images/upload \
+    /root/.ai_alerting/images/result \
+    /root/.ai_alerting/models \
+    /root/.ai_alerting/license
+
+EXPOSE 8011
+CMD ["python", "main.py", "--host", "0.0.0.0", "--port", "8011"]

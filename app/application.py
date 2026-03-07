@@ -14,6 +14,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.alerting import get_runtime
 from app.common.errors import AlertingError
+from app.common.license import LicenseError, validate_license
+from app.common.settings import load_license_settings
 from app.http import router
 from app.common.logging import logger
 
@@ -21,6 +23,17 @@ from app.common.logging import logger
 @asynccontextmanager
 async def app_lifespan(_app: FastAPI):
     """应用生命周期钩子：启动时拉起 worker，退出时安全关闭。"""
+
+    license_settings = load_license_settings()
+    if license_settings.enabled:
+        try:
+            claims = validate_license(license_settings)
+            logger.info("license validated subject=%s expires_at=%s", claims.subject, claims.expires_at.isoformat())
+        except LicenseError as exc:
+            if license_settings.fail_open:
+                logger.warning("license validation failed but fail_open enabled: %s", exc)
+            else:
+                raise RuntimeError(f"license validation failed: {exc}") from exc
 
     runtime = get_runtime()
     runtime["worker"].start()

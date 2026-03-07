@@ -16,6 +16,9 @@ services:
       - ALERT_SEG_DEVICE=cuda:0
       - ALERT_IMAGE_RETENTION_DAYS=30
       - ALERT_CLEANUP_SCAN_INTERVAL_SECONDS=3600
+      - ALERT_LICENSE_ENABLED=false
+      - ALERT_LICENSE_PATH=/root/.ai_alerting/license/license.json
+      - ALERT_LICENSE_PUBLIC_KEY_PATH=/root/.ai_alerting/license/public_key.pem
     volumes:
       # 运行目录挂载：日志、上传图、结果图、模型
       - ../runtime:/root/.ai_alerting

@@ -1,0 +1,49 @@
+{
+  "redis": {
+    "host": "127.0.0.1",
+    "port": 6379,
+    "database": 6,
+    "password": null
+  },
+  "filepath": {
+    "root": "/root/.ai_alerting"
+  },
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8011
+  },
+  "alert": {
+    "det_model_name": "det_model.pt",
+    "seg_model_name": "seg_model.pt",
+    "seg_config_name": "mmseg_config.py",
+    "detector_imgsz": [1280, 1280],
+    "detector_conf": 0.4,
+    "detector_iou": 0.45,
+    "detector_device": "0",
+    "segmentor_device": "cuda:0",
+    "queue_name": "alert:queue:pending",
+    "pending_key_prefix": "alert:pending",
+    "result_key_prefix": "alert:result",
+    "result_stream_prefix": "alert:result_stream",
+    "result_ack_prefix": "alert:result_ack",
+    "result_group_prefix": "alert:result_group",
+    "result_claim_idle_ms": 60000,
+    "upload_max_bytes": 20971520,
+    "allowed_image_types": ["image/jpg", "image/jpeg", "image/png"],
+    "image_retention_days": 30,
+    "cleanup_scan_interval_seconds": 3600,
+    "default_limit": 1,
+    "roi_default": [-1, -1, -1, -1],
+    "near_water_distance_px": 24,
+    "in_water_overlap_ratio": 0.08,
+    "worker_poll_seconds": 0.05,
+    "worker_threads": 4
+  },
+  "license": {
+    "enabled": false,
+    "license_path": "/root/.ai_alerting/license/license.json",
+    "public_key_path": "/root/.ai_alerting/license/public_key.pem",
+    "fail_open": false,
+    "require_machine_binding": true
+  }
+}

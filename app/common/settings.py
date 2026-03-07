@@ -57,12 +57,54 @@ class ServerSettings(BaseModel):
     port: int = 8011
 
 
+class AlertConfig(BaseModel):
+    """告警业务配置（可由配置文件统一管理）。"""
+
+    det_model_name: str = "det_model.pt"
+    seg_model_name: str = "seg_model.pt"
+    seg_config_name: str = "mmseg_config.py"
+    detector_imgsz: tuple[int, int] = (1280, 1280)
+    detector_conf: float = 0.4
+    detector_iou: float = 0.45
+    detector_device: str = "0"
+    segmentor_device: str = "cuda:0"
+    queue_name: str = "alert:queue:pending"
+    pending_key_prefix: str = "alert:pending"
+    result_key_prefix: str = "alert:result"
+    result_stream_prefix: str = "alert:result_stream"
+    result_ack_prefix: str = "alert:result_ack"
+    result_group_prefix: str = "alert:result_group"
+    result_claim_idle_ms: int = 60000
+    upload_max_bytes: int = 20 * 1024 * 1024
+    allowed_image_types: tuple[str, ...] = ("image/jpg", "image/jpeg", "image/png")
+    image_retention_days: int = 30
+    cleanup_scan_interval_seconds: int = 3600
+    default_limit: int = 1
+    roi_default: tuple[int, int, int, int] = (-1, -1, -1, -1)
+    near_water_distance_px: int = 24
+    in_water_overlap_ratio: float = 0.08
+    worker_poll_seconds: float = 0.05
+    worker_threads: int = 4
+
+
+class LicenseConfig(BaseModel):
+    """授权校验配置。"""
+
+    enabled: bool = False
+    license_path: str = op.join(APP_HOME, "license", "license.json")
+    public_key_path: str = op.join(APP_HOME, "license", "public_key.pem")
+    fail_open: bool = False
+    require_machine_binding: bool = True
+
+
 class AppConfig(BaseModel):
     """顶层配置模型。"""
 
     redis: RedisSettings = RedisSettings()
     filepath: FileSettings = FileSettings()
     server: ServerSettings = ServerSettings()
+    alert: AlertConfig = AlertConfig()
+    license: LicenseConfig = LicenseConfig()
 
 
 class ConfigLoader:
@@ -173,6 +215,17 @@ class AlertSettings:
         return f"{self.result_group_prefix}:{session_id}"
 
 
+@dataclass
+class LicenseSettings:
+    """运行时 license 校验配置。"""
+
+    enabled: bool
+    license_path: str
+    public_key_path: str
+    fail_open: bool = False
+    require_machine_binding: bool = True
+
+
 def _resolve_latest_model_root(base_dir: str) -> str:
     """解析最新版本模型目录（取最大数字子目录）。"""
     if not os.path.isdir(base_dir):
@@ -185,16 +238,64 @@ def _resolve_latest_model_root(base_dir: str) -> str:
 
 def load_alert_settings() -> AlertSettings:
     """从全局配置与环境变量组合出告警参数。"""
+
+    alert_cfg = settings.alert
     model_root = _resolve_latest_model_root(settings.filepath.model_root)
     return AlertSettings(
         upload_root=settings.filepath.upload,
         result_root=settings.filepath.result,
         model_root=model_root,
-        detector_device=os.getenv("ALERT_DET_DEVICE", "0"),
-        segmentor_device=os.getenv("ALERT_SEG_DEVICE", "cuda:0"),
-        worker_threads=max(1, int(os.getenv("ALERT_WORKER_THREADS", "4"))),
-        result_claim_idle_ms=max(1000, int(os.getenv("ALERT_RESULT_CLAIM_IDLE_MS", "60000"))),
-        upload_max_bytes=max(1024 * 1024, int(os.getenv("ALERT_UPLOAD_MAX_BYTES", str(20 * 1024 * 1024)))),
-        image_retention_days=max(1, int(os.getenv("ALERT_IMAGE_RETENTION_DAYS", "30"))),
-        cleanup_scan_interval_seconds=max(60, int(os.getenv("ALERT_CLEANUP_SCAN_INTERVAL_SECONDS", "3600"))),
+        det_model_name=alert_cfg.det_model_name,
+        seg_model_name=alert_cfg.seg_model_name,
+        seg_config_name=alert_cfg.seg_config_name,
+        detector_imgsz=tuple(alert_cfg.detector_imgsz),
+        detector_conf=float(alert_cfg.detector_conf),
+        detector_iou=float(alert_cfg.detector_iou),
+        detector_device=os.getenv("ALERT_DET_DEVICE", alert_cfg.detector_device),
+        segmentor_device=os.getenv("ALERT_SEG_DEVICE", alert_cfg.segmentor_device),
+        queue_name=alert_cfg.queue_name,
+        pending_key_prefix=alert_cfg.pending_key_prefix,
+        result_key_prefix=alert_cfg.result_key_prefix,
+        result_stream_prefix=alert_cfg.result_stream_prefix,
+        result_ack_prefix=alert_cfg.result_ack_prefix,
+        result_group_prefix=alert_cfg.result_group_prefix,
+        result_claim_idle_ms=max(1000, int(os.getenv("ALERT_RESULT_CLAIM_IDLE_MS", str(alert_cfg.result_claim_idle_ms)))),
+        upload_max_bytes=max(1024 * 1024, int(os.getenv("ALERT_UPLOAD_MAX_BYTES", str(alert_cfg.upload_max_bytes)))),
+        allowed_image_types=tuple(alert_cfg.allowed_image_types),
+        image_retention_days=max(1, int(os.getenv("ALERT_IMAGE_RETENTION_DAYS", str(alert_cfg.image_retention_days)))),
+        cleanup_scan_interval_seconds=max(
+            60,
+            int(os.getenv("ALERT_CLEANUP_SCAN_INTERVAL_SECONDS", str(alert_cfg.cleanup_scan_interval_seconds))),
+        ),
+        default_limit=max(0, int(alert_cfg.default_limit)),
+        roi_default=tuple(alert_cfg.roi_default),
+        near_water_distance_px=max(0, int(alert_cfg.near_water_distance_px)),
+        in_water_overlap_ratio=float(alert_cfg.in_water_overlap_ratio),
+        worker_poll_seconds=max(0.01, float(alert_cfg.worker_poll_seconds)),
+        worker_threads=max(1, int(os.getenv("ALERT_WORKER_THREADS", str(alert_cfg.worker_threads)))),
+    )
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    """读取布尔环境变量。"""
+
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def load_license_settings() -> LicenseSettings:
+    """从配置文件与环境变量加载授权校验参数。"""
+
+    license_cfg = settings.license
+    return LicenseSettings(
+        enabled=_env_bool("ALERT_LICENSE_ENABLED", bool(license_cfg.enabled)),
+        license_path=os.getenv("ALERT_LICENSE_PATH", license_cfg.license_path),
+        public_key_path=os.getenv("ALERT_LICENSE_PUBLIC_KEY_PATH", license_cfg.public_key_path),
+        fail_open=_env_bool("ALERT_LICENSE_FAIL_OPEN", bool(license_cfg.fail_open)),
+        require_machine_binding=_env_bool(
+            "ALERT_LICENSE_REQUIRE_MACHINE_BINDING",
+            bool(license_cfg.require_machine_binding),
+        ),
     )

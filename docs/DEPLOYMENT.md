@@ -14,7 +14,8 @@ mim install "mmcv==2.0.0rc4"
 ## 2. 运行目录
 创建运行目录：
 ```bash
-mkdir -p runtime/log runtime/images/upload runtime/images/result runtime/models/000001
+mkdir -p runtime/log runtime/images/upload runtime/images/result runtime/models/000001 runtime/license
+cp runtime/config.example.json runtime/config.json
 ```
 
 目录说明：
@@ -22,6 +23,8 @@ mkdir -p runtime/log runtime/images/upload runtime/images/result runtime/models/
 - `runtime/images/upload`
 - `runtime/images/result`
 - `runtime/models/<version>`
+- `runtime/config.json`
+- `runtime/license`
 
 模型目录下需有：
 - `det_model.pt`
@@ -44,3 +47,49 @@ docker compose up -d --build
 - `ALERT_IMAGE_RETENTION_DAYS`：上传图与结果图保留天数，默认 `30`
 - `ALERT_CLEANUP_SCAN_INTERVAL_SECONDS`：清理扫描周期（秒），默认 `3600`
 - `ALERT_UPLOAD_MAX_BYTES`：单张上传最大字节数，默认 `20971520`（20MB）
+- `ALERT_LICENSE_ENABLED`：是否启用 license 校验，默认 `false`
+- `ALERT_LICENSE_PATH`：license 文件路径
+- `ALERT_LICENSE_PUBLIC_KEY_PATH`：Ed25519 公钥路径
+
+受保护构建（PyArmor）：
+```bash
+./scripts/build_protected_image.sh ai_alerting:protected
+docker run -d --name ai_alerting_service \
+  -p 8011:8011 \
+  -v "$(pwd)/runtime:/root/.ai_alerting" \
+  ai_alerting:protected
+```
+
+## 4. License（到期 + 设备绑定 + 签名）
+生成密钥对：
+```bash
+python3 scripts/license_tool.py gen-key \
+  --private-key runtime/license/private_key.pem \
+  --public-key runtime/license/public_key.pem
+```
+
+读取机器 ID（Linux）：
+```bash
+cat /etc/machine-id
+```
+
+签发 license：
+```bash
+python3 scripts/license_tool.py sign \
+  --private-key runtime/license/private_key.pem \
+  --subject customer_a \
+  --machine-id "$(cat /etc/machine-id)" \
+  --expires-at 2027-12-31T23:59:59Z \
+  --output runtime/license/license.json
+```
+
+启用校验（compose 环境变量）：
+```yaml
+ALERT_LICENSE_ENABLED: "true"
+ALERT_LICENSE_PATH: /root/.ai_alerting/license/license.json
+ALERT_LICENSE_PUBLIC_KEY_PATH: /root/.ai_alerting/license/public_key.pem
+```
+
+说明：
+- `docker-compose` 只能编排和传配置，无法单独实现“代码加密”。
+- 代码保护需在镜像构建阶段完成（如 `Dockerfile.protected` 的 PyArmor 流程）。

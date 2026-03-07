@@ -5,7 +5,8 @@
 ## 快速开始
 ```bash
 python3 -m pip install -r requirements.txt
-mkdir -p runtime/log runtime/images/upload runtime/images/result runtime/models/000001
+mkdir -p runtime/log runtime/images/upload runtime/images/result runtime/models/000001 runtime/license
+cp runtime/config.example.json runtime/config.json
 python3 main.py --host 0.0.0.0 --port 8011
 ```
 
@@ -13,6 +14,10 @@ python3 main.py --host 0.0.0.0 --port 8011
 - 架构与调用链：`docs/CALL_CHAIN.md`
 - API 接口文档：`docs/API.md`
 - 部署与 Docker：`docs/DEPLOYMENT.md`
+
+## 配置与授权
+- 统一配置文件：`runtime/config.json`（可由 `runtime/config.example.json` 复制）
+- 启动期授权校验：支持 license 到期、设备绑定、签名校验（见 `docs/DEPLOYMENT.md`）
 
 ## 目录概览
 ```text
