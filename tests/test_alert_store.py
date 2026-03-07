@@ -209,7 +209,8 @@ class AlertStoreTest(unittest.TestCase):
                 _ = (id, mkstream)
                 return True
 
-            def xreadgroup(self, _groupname, _consumername, streams, _count):
+            def xreadgroup(self, groupname, consumername, streams, count):
+                _ = (groupname, consumername, count)
                 stream_key = list(streams.keys())[0]
                 stream_id = streams[stream_key]
                 if stream_id == "0":
