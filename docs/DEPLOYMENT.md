@@ -47,9 +47,11 @@ docker compose up -d --build
 - `ALERT_IMAGE_RETENTION_DAYS`：上传图与结果图保留天数，默认 `30`
 - `ALERT_CLEANUP_SCAN_INTERVAL_SECONDS`：清理扫描周期（秒），默认 `3600`
 - `ALERT_UPLOAD_MAX_BYTES`：单张上传最大字节数，默认 `20971520`（20MB）
+- `ALERT_CONFIG_STRICT`：配置文件加载失败是否阻止启动，默认 `true`
 - `ALERT_LICENSE_ENABLED`：是否启用 license 校验，默认 `false`
 - `ALERT_LICENSE_PATH`：license 文件路径
 - `ALERT_LICENSE_PUBLIC_KEY_PATH`：Ed25519 公钥路径
+- `ALERT_LICENSE_ALLOW_HOSTNAME_FALLBACK`：machine-id 不可读时是否回退 hostname，默认 `false`
 
 受保护构建（PyArmor）：
 ```bash
@@ -88,6 +90,7 @@ python3 scripts/license_tool.py sign \
 ALERT_LICENSE_ENABLED: "true"
 ALERT_LICENSE_PATH: /root/.ai_alerting/license/license.json
 ALERT_LICENSE_PUBLIC_KEY_PATH: /root/.ai_alerting/license/public_key.pem
+ALERT_LICENSE_ALLOW_HOSTNAME_FALLBACK: "false"
 ```
 
 说明：

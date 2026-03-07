@@ -165,6 +165,36 @@ class AlertStoreTest(unittest.TestCase):
         self.assertEqual(len(fake_redis.xdel_calls), 1)
         self.assertTrue(any(len(call[1]) == 2 for call in fake_redis.hdel_calls))
 
+    def test_fetch_results_has_more_depends_on_page_size(self):
+        """hasMore 应由是否达到分页上限决定，避免 PEL 统计假阳性。"""
+
+        import json
+
+        class _FakeRedis:
+            def xgroup_create(self, _stream, _group, id="0", mkstream=True):
+                _ = (id, mkstream)
+                return True
+
+            def xreadgroup(self, _groupname, _consumername, streams, _count):
+                stream_key = list(streams.keys())[0]
+                stream_id = streams[stream_key]
+                if stream_id == "0":
+                    return []
+                return [
+                    (stream_key, [("1710000000001-0", {"imageId": "img-2", "payload": json.dumps({"imageId": "img-2"})})])
+                ]
+
+            def xautoclaim(self, **_kwargs):
+                return ("0-0", [], [])
+
+            def hset(self, _key, _field, _value):
+                return 1
+
+        self.store.redis = _FakeRedis()
+        rows, has_more = self.store.fetch_results("s-redis", limit=3)
+        self.assertEqual(len(rows), 1)
+        self.assertFalse(has_more)
+
 
 if __name__ == "__main__":
     unittest.main()

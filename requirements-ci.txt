@@ -1,0 +1,9 @@
+# CI 轻量依赖：用于运行单元测试，不安装推理栈
+fastapi
+python-multipart
+pydantic<2
+numpy
+opencv-python-headless
+redis
+requests
+cryptography

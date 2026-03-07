@@ -207,14 +207,8 @@ class AlertStore:
                 )
                 _consume(new_resp)
 
-            try:
-                # XPENDING 用于粗略判断是否还有可消费数据，支撑 hasMore。
-                pending_info = self.redis.xpending(stream_key, group_name)
-                pending_count = int(pending_info.get("pending", 0))
-            except Exception:
-                pending_count = 0
-
-            has_more = pending_count > 0 or len(rows) >= safe_limit
+            # hasMore 语义改为“本批结果是否达到分页上限”，避免因 PEL 统计导致长期假阳性。
+            has_more = len(rows) >= safe_limit
             return rows, has_more
 
         with self._lock:

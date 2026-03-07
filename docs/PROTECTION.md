@@ -111,6 +111,7 @@ ALERT_LICENSE_PATH: /root/.ai_alerting/license/license.json
 ALERT_LICENSE_PUBLIC_KEY_PATH: /root/.ai_alerting/license/public_key.pem
 ALERT_LICENSE_REQUIRE_MACHINE_BINDING: "true"
 ALERT_LICENSE_FAIL_OPEN: "false"
+ALERT_LICENSE_ALLOW_HOSTNAME_FALLBACK: "false"
 ```
 
 ## 7. 运维建议
@@ -138,10 +139,13 @@ ALERT_LICENSE_FAIL_OPEN: "false"
 授权与告警参数统一遵循：
 - 环境变量 > `runtime/config.json` > 代码默认
 
+配置加载失败策略：
+- 默认严格模式（`ALERT_CONFIG_STRICT=true`）下，`config.json` 解析失败会阻止启动。
+- 仅建议在故障应急时临时设置 `ALERT_CONFIG_STRICT=false` 回退默认值。
+
 ## 9. 安全加固可选项（增强）
 
 - 将镜像设为只读根文件系统（只把 runtime 挂载为可写）
 - 关闭容器特权，使用最小权限用户运行
 - 去掉调试工具、shell
 - 配合网关鉴权与 mTLS，减少接口暴露风险
-

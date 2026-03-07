@@ -54,7 +54,7 @@ def _parse_iso8601(value: str) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
-def _read_machine_id() -> str:
+def _read_machine_id(allow_hostname_fallback: bool = False) -> str:
     """读取本机标识。"""
 
     # Linux 常见 machine-id 路径；容器场景通常会挂载或继承其中一个。
@@ -68,8 +68,10 @@ def _read_machine_id() -> str:
                     return value
             except Exception:
                 continue
-    # 兜底使用 hostname。安全性弱于 machine-id，仅用于保障可运行性。
-    return os.getenv("HOSTNAME", "").strip()
+    # 可选兜底：hostname 安全性弱于 machine-id，默认关闭。
+    if allow_hostname_fallback:
+        return os.getenv("HOSTNAME", "").strip()
+    return ""
 
 
 def _load_license_file(path: str) -> Dict[str, Any]:
@@ -156,7 +158,7 @@ def validate_license(settings: LicenseSettings) -> LicenseClaims:
 
     if settings.require_machine_binding:
         # 设备绑定策略：license 中 machineId 必须与当前设备一致。
-        current_machine = _read_machine_id()
+        current_machine = _read_machine_id(allow_hostname_fallback=settings.allow_hostname_fallback)
         if not current_machine:
             raise LicenseError("cannot read machine id")
         if not claims.machine_id:

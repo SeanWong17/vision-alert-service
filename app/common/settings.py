@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import os.path as op
 from dataclasses import dataclass
@@ -19,6 +20,7 @@ from pydantic import BaseModel
 HOME_PATH = op.expanduser("~")
 APP_HOME = op.join(HOME_PATH, ".ai_alerting")
 DEFAULT_CONFIG_PATH = op.join(APP_HOME, "config.json")
+_logger = logging.getLogger(__name__)
 
 
 class RedisSettings(BaseModel):
@@ -101,6 +103,7 @@ class LicenseConfig(BaseModel):
     public_key_path: str = op.join(APP_HOME, "license", "public_key.pem")
     fail_open: bool = False
     require_machine_binding: bool = True
+    allow_hostname_fallback: bool = False
 
 
 class AppConfig(BaseModel):
@@ -111,6 +114,10 @@ class AppConfig(BaseModel):
     server: ServerSettings = ServerSettings()
     alert: AlertConfig = AlertConfig()
     license: LicenseConfig = LicenseConfig()
+
+
+class ConfigLoadError(RuntimeError):
+    """配置文件加载失败。"""
 
 
 class ConfigLoader:
@@ -127,6 +134,12 @@ class ConfigLoader:
                 if ConfigLoader._config is None:
                     ConfigLoader._config = self._load(path)
 
+    def _strict_mode(self) -> bool:
+        """是否启用配置严格模式（加载失败即中断启动）。"""
+
+        raw = os.getenv("ALERT_CONFIG_STRICT", "true")
+        return raw.strip().lower() in {"1", "true", "yes", "on"}
+
     def _load(self, path: str) -> AppConfig:
         """从指定路径读取配置文件。"""
         if not os.path.exists(path):
@@ -134,8 +147,12 @@ class ConfigLoader:
         try:
             with open(path, "r", encoding="utf-8") as fp:
                 return AppConfig(**json.load(fp))
-        except Exception:
-            # 配置文件损坏时回退默认，避免服务直接不可启动。
+        except Exception as exc:
+            message = f"failed to load config file {path}: {exc}"
+            _logger.error(message)
+            if self._strict_mode():
+                raise ConfigLoadError(message) from exc
+            # 非严格模式下允许回退默认，便于紧急恢复。
             return AppConfig()
 
     @property
@@ -231,6 +248,7 @@ class LicenseSettings:
     public_key_path: str
     fail_open: bool = False
     require_machine_binding: bool = True
+    allow_hostname_fallback: bool = False
 
 
 def _resolve_latest_model_root(base_dir: str) -> str:
@@ -305,5 +323,9 @@ def load_license_settings() -> LicenseSettings:
         require_machine_binding=_env_bool(
             "ALERT_LICENSE_REQUIRE_MACHINE_BINDING",
             bool(license_cfg.require_machine_binding),
+        ),
+        allow_hostname_fallback=_env_bool(
+            "ALERT_LICENSE_ALLOW_HOSTNAME_FALLBACK",
+            bool(license_cfg.allow_hostname_fallback),
         ),
     )

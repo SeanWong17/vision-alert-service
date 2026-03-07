@@ -28,8 +28,12 @@ def cmd_gen_key(args) -> None:
     private_key = Ed25519PrivateKey.generate()
     public_key = private_key.public_key()
 
-    os.makedirs(os.path.dirname(args.private_key), exist_ok=True)
-    os.makedirs(os.path.dirname(args.public_key), exist_ok=True)
+    private_dir = os.path.dirname(args.private_key)
+    public_dir = os.path.dirname(args.public_key)
+    if private_dir:
+        os.makedirs(private_dir, exist_ok=True)
+    if public_dir:
+        os.makedirs(public_dir, exist_ok=True)
 
     with open(args.private_key, "wb") as fp:
         fp.write(
@@ -39,6 +43,7 @@ def cmd_gen_key(args) -> None:
                 encryption_algorithm=serialization.NoEncryption(),
             )
         )
+    os.chmod(args.private_key, 0o600)
 
     with open(args.public_key, "wb") as fp:
         fp.write(
@@ -67,7 +72,9 @@ def cmd_sign(args) -> None:
     signature = private_key.sign(_canonical_payload(payload))
     payload["signature"] = base64.b64encode(signature).decode("ascii")
 
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    output_dir = os.path.dirname(args.output)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
     with open(args.output, "w", encoding="utf-8") as fp:
         json.dump(payload, fp, indent=2, ensure_ascii=False)
         fp.write("\n")
