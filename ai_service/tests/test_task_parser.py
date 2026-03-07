@@ -1,7 +1,11 @@
+"""任务适配器测试。"""
+
 import unittest
 
 
 def _runtime_ready() -> bool:
+    """检测运行依赖是否齐全。"""
+
     try:
         import fastapi  # noqa: F401
         return True
@@ -9,31 +13,42 @@ def _runtime_ready() -> bool:
         return False
 
 
-@unittest.skipUnless(_runtime_ready(), 'runtime deps not installed')
-class TaskParserTest(unittest.TestCase):
-    def test_list_input_is_wrapped(self):
-        from app.modules.transmission.task_parser import normalize_people_tasks
+@unittest.skipUnless(_runtime_ready(), "runtime deps not installed")
+class TaskAdapterTest(unittest.TestCase):
+    """验证任务标准化规则。"""
 
-        payload = [{"id": 1, "params": {"limit": 1}}]
-        got = normalize_people_tasks(payload)
-        self.assertIn("ultrahigh_people_task", got)
-        self.assertEqual(len(got["ultrahigh_people_task"]), 1)
+    def test_legacy_task_list_is_normalized(self):
+        """直接传 list 时应被识别为任务列表。"""
 
-    def test_invalid_coordinate_is_defaulted(self):
-        from app.modules.transmission.task_parser import normalize_people_tasks, DEFAULT_COORDINATE
+        from app.alerting.config import AlertSettings
+        from app.alerting.task_adapter import normalize_tasks
 
-        payload = {"ultrahigh_people_task": [{"id": 1, "params": {"limit": 1}}]}
-        got = normalize_people_tasks(payload)
-        coord = got["ultrahigh_people_task"][0]["params"]["coordinate"]
-        self.assertEqual(coord, DEFAULT_COORDINATE)
+        settings = AlertSettings(upload_root="/tmp/u", result_root="/tmp/r", model_root="/tmp/m")
+        tasks = normalize_tasks([{"id": 1, "params": {"limit": "2"}}], settings)
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0].params["limit"], 2)
+
+    def test_invalid_coordinate_falls_back(self):
+        """缺失坐标时应回退默认哨兵坐标。"""
+
+        from app.alerting.config import AlertSettings
+        from app.alerting.task_adapter import normalize_tasks
+
+        settings = AlertSettings(upload_root="/tmp/u", result_root="/tmp/r", model_root="/tmp/m")
+        tasks = normalize_tasks({"tasks": [{"id": 2, "params": {}}]}, settings)
+        self.assertEqual(tasks[0].params["coordinate"], list(settings.roi_default))
 
     def test_invalid_shape_raises(self):
-        from app.modules.transmission.task_parser import normalize_people_tasks
-        from app.utilities import exceptions
+        """非法任务结构应抛出领域异常。"""
 
-        with self.assertRaises(exceptions.TransmissionError):
-            normalize_people_tasks({"foo": []})
+        from app.alerting.config import AlertSettings
+        from app.alerting.task_adapter import normalize_tasks
+        from app.core.errors import AlertingError
+
+        settings = AlertSettings(upload_root="/tmp/u", result_root="/tmp/r", model_root="/tmp/m")
+        with self.assertRaises(AlertingError):
+            normalize_tasks({"foo": []}, settings)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

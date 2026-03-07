@@ -1,7 +1,11 @@
+"""服务命名策略测试。"""
+
 import unittest
 
 
 def _runtime_ready() -> bool:
+    """检测运行依赖是否齐全。"""
+
     try:
         import fastapi  # noqa: F401
         return True
@@ -9,20 +13,23 @@ def _runtime_ready() -> bool:
         return False
 
 
-@unittest.skipUnless(_runtime_ready(), 'runtime deps not installed')
-class NamingPolicyTest(unittest.TestCase):
+@unittest.skipUnless(_runtime_ready(), "runtime deps not installed")
+class ServiceNamingTest(unittest.TestCase):
+    """验证文件名分桶规则。"""
+
     def test_position_from_filename(self):
-        from app.modules.transmission.naming import position_from_filename
+        """带下划线取前缀，不带下划线回退 other。"""
 
-        self.assertEqual(position_from_filename('A100_20250101.jpg'), 'A100')
-        self.assertEqual(position_from_filename('nounderscore.jpg'), 'other')
+        from app.alerting.config import AlertSettings
+        from app.alerting.pipeline import AlertPipeline
+        from app.alerting.service import AlertService
+        from app.alerting.store import AlertStore
 
-    def test_result_image_name(self):
-        from app.modules.transmission.naming import result_image_name
+        settings = AlertSettings(upload_root="/tmp/u", result_root="/tmp/r", model_root="/tmp/m")
+        svc = AlertService(settings, AlertStore(settings), AlertPipeline(settings))
+        self.assertEqual(svc._position_from_filename("A100_20250101.jpg"), "A100")
+        self.assertEqual(svc._position_from_filename("plain.jpg"), "other")
 
-        self.assertEqual(result_image_name('a.jpg', False), 'a.jpg')
-        self.assertEqual(result_image_name('a.jpg', True), 'a_ALARM.jpg')
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

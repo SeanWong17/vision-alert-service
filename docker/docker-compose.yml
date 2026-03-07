@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  ai_alerting:
+    build:
+      context: ../ai_service
+      dockerfile: ../docker/Dockerfile
+    container_name: ai_alerting_service
+    restart: unless-stopped
+    ports:
+      - "8011:8011"
+    environment:
+      - ALERT_WORKER_THREADS=4
+      - ALERT_DET_DEVICE=0
+      - ALERT_SEG_DEVICE=cuda:0
+    volumes:
+      - ../ai_service/runtime/app_data:/root/.ai_alerting
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai_alerting_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:

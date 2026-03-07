@@ -1,0 +1,19 @@
+# Web runtime
+fastapi
+uvicorn
+click
+python-multipart
+
+# Core runtime
+pydantic<2
+numpy
+opencv-python-headless
+redis
+requests
+
+# Inference runtime
+torch
+ultralytics==8.3.0
+mmengine==0.8.4
+mmsegmentation==1.2.2
+# mmcv must match CUDA/PyTorch build. Install with openmim in deployment.
