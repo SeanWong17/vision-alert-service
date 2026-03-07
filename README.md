@@ -19,6 +19,9 @@ python3 main.py --host 0.0.0.0 --port 8011
 ## 配置与授权
 - 统一配置文件：`runtime/config.json`（可由 `runtime/config.example.json` 复制）
 - 启动期授权校验：支持 license 到期、设备绑定、签名校验（见 `docs/DEPLOYMENT.md`）
+- 可用性探针：`GET /healthz`（存活）与 `GET /readyz`（就绪）
+- 追踪头：支持 `X-Request-ID` 透传，便于日志关联
+- 指标导出：`GET /metrics`（Prometheus 文本格式）
 
 ## 目录概览
 ```text

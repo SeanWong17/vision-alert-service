@@ -94,6 +94,19 @@ class AlertStoreTest(unittest.TestCase):
         self.store.discard_pending("s-p", "img-p")
         self.assertIsNone(self.store.get_pending("s-p", "img-p"))
 
+    def test_push_dead_letter_records_failure_payload(self):
+        """死信记录应保存在内存死信队列。"""
+
+        task = self.QueueTask(
+            image_id="img-dlq",
+            session_id="s-dlq",
+            file_name="dlq.jpg",
+            file_path="/tmp/dlq.jpg",
+            tasks=[self.AlarmTask(id=5, params={"limit": 1})],
+        )
+        self.store.push_dead_letter(task, "boom")
+        self.assertEqual(len(self.store._dead_letters), 1)
+
     def test_fetch_and_confirm_results_use_stream_ack(self):
         """Redis 分支应走 stream 消费并在确认时 ack+del。"""
 

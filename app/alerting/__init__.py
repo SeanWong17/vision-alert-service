@@ -29,7 +29,12 @@ def get_runtime() -> dict:
         store = AlertStore(settings)
         pipeline = AlertPipeline(settings)
         service = AlertService(settings, store, pipeline)
-        worker = AlertWorker(service, poll_seconds=settings.worker_poll_seconds, max_workers=settings.worker_threads)
+        worker = AlertWorker(
+            service,
+            poll_seconds=settings.worker_poll_seconds,
+            max_workers=settings.worker_threads,
+            max_inflight=settings.worker_max_inflight,
+        )
         _runtime = {
             "settings": settings,
             "store": store,

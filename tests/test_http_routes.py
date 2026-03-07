@@ -31,7 +31,22 @@ class UploadRouteErrorTest(unittest.TestCase):
             def stop(self):
                 return None
 
-        runtime = {"service": service, "worker": _Worker()}
+            def is_running(self):
+                return True
+
+            def inflight_tasks(self):
+                return 0
+
+        class _Store:
+            redis = None
+
+            def queue_length(self):
+                return 0
+
+            def dead_letter_size(self):
+                return 0
+
+        runtime = {"service": service, "worker": _Worker(), "store": _Store()}
         patcher = patch("app.application.get_runtime", return_value=runtime)
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -73,6 +88,58 @@ class UploadRouteErrorTest(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 500)
         self.assertEqual(response.json()["message"], "internal server error")
+        self.assertTrue(response.json()["requestId"])
+        self.assertEqual(response.headers.get("X-Request-ID"), response.json()["requestId"])
+
+    def test_request_id_is_echoed_for_success(self):
+        """成功请求应透传 X-Request-ID。"""
+
+        class _Service:
+            def submit_async(self, *_args, **_kwargs):
+                return {"code": 0, "message": "Success", "sessionId": "S1", "imageId": "I1"}
+
+        client = self._new_client(_Service())
+        response = client.post(
+            "/api/transmission/upload",
+            files={"file": ("x.jpg", b"abc", "image/jpeg")},
+            data={"FileUpload": "{\"filename\":\"x.jpg\",\"sessionId\":\"S1\"}", "tasks": "[{\"id\":1,\"params\":{\"limit\":1}}]"},
+            headers={"X-Request-ID": "rid-123"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("X-Request-ID"), "rid-123")
+
+    def test_healthz_and_readyz(self):
+        """健康检查接口应返回可解析状态。"""
+
+        class _Service:
+            def submit_async(self, *_args, **_kwargs):
+                return {"code": 0}
+
+        client = self._new_client(_Service())
+        health = client.get("/healthz")
+        self.assertEqual(health.status_code, 200)
+        self.assertEqual(health.json()["status"], "ok")
+
+        ready = client.get("/readyz")
+        self.assertEqual(ready.status_code, 200)
+        self.assertEqual(ready.json()["status"], "ready")
+        self.assertEqual(ready.json()["workerRunning"], True)
+        self.assertEqual(ready.json()["storageMode"], "memory")
+
+    def test_metrics_endpoint_exposes_core_metrics(self):
+        """指标端点应导出 Prometheus 文本。"""
+
+        class _Service:
+            def submit_async(self, *_args, **_kwargs):
+                return {"code": 0}
+
+        client = self._new_client(_Service())
+        _ = client.get("/healthz")
+        response = client.get("/metrics")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("http_requests_total", response.text)
+        self.assertIn("http_request_duration_seconds_bucket", response.text)
+        self.assertIn("alert_queue_length", response.text)
 
 
 if __name__ == "__main__":

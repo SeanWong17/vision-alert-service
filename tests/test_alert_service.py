@@ -264,6 +264,7 @@ class AlertServiceTest(unittest.TestCase):
         self.assertEqual(rows[0]["results"][0]["id"], 11)
         self.assertEqual(rows[0]["results"][0]["reserved"], "0")
         self.assertIn("inference exploded", rows[0]["results"][0]["detail"]["error"])
+        self.assertEqual(len(self.store._dead_letters), 1)
 
     def test_analyze_sync_raises_when_result_image_write_fails(self):
         """结果图保存失败时应抛异常，避免静默成功。"""

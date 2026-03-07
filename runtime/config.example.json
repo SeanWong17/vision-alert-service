@@ -74,7 +74,13 @@
     "__comment_worker_poll_seconds": "异步 worker 空轮询间隔（秒）",
     "worker_poll_seconds": 0.05,
     "__comment_worker_threads": "异步 worker 线程数",
-    "worker_threads": 4
+    "worker_threads": 4,
+    "__comment_worker_max_inflight": "异步 worker 最大并发在途任务数（用于背压）",
+    "worker_max_inflight": 64,
+    "__comment_dead_letter_queue": "异步失败任务死信队列名",
+    "dead_letter_queue": "alert:dead_letter",
+    "__comment_dead_letter_maxlen": "死信队列保留条数上限",
+    "dead_letter_maxlen": 1000
   },
 
   "license": {

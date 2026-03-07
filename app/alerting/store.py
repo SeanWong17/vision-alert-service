@@ -6,6 +6,7 @@ import json
 import os
 import socket
 import threading
+import time
 from collections import defaultdict, deque
 from typing import Dict, List, Optional, Tuple
 
@@ -41,6 +42,7 @@ class AlertStore:
         self._queue: deque[str] = deque()
         self._pending: Dict[str, Dict[str, str]] = defaultdict(dict)
         self._results: Dict[str, Dict[str, str]] = defaultdict(dict)
+        self._dead_letters: deque[str] = deque(maxlen=max(100, int(self.settings.dead_letter_maxlen)))
 
         self.redis = None
         if RedisClient is not None:
@@ -74,6 +76,11 @@ class AlertStore:
 
         return self.settings.result_group(session_id)
 
+    def _dead_letter_queue(self) -> str:
+        """死信队列 key。"""
+
+        return self.settings.dead_letter_queue
+
     def _ensure_result_group(self, stream_key: str, group_name: str) -> None:
         """确保结果 stream 的消费组存在。"""
 
@@ -103,6 +110,14 @@ class AlertStore:
             return int(self.redis.llen(self.settings.queue_name))
         with self._lock:
             return len(self._queue)
+
+    def dead_letter_size(self) -> int:
+        """获取当前死信队列长度。"""
+
+        if self.redis:
+            return int(self.redis.llen(self._dead_letter_queue()))
+        with self._lock:
+            return len(self._dead_letters)
 
     def pop(self) -> Optional[QueueTask]:
         """弹出一个待处理任务。"""
@@ -267,3 +282,26 @@ class AlertStore:
 
         with self._lock:
             self._pending.get(session_id, {}).pop(image_id, None)
+
+    def push_dead_letter(self, task: QueueTask, reason: str) -> None:
+        """记录死信任务，便于后续运维排障与重放。"""
+
+        payload = json.dumps(
+            {
+                "sessionId": task.session_id,
+                "imageId": task.image_id,
+                "fileName": task.file_name,
+                "filePath": task.file_path,
+                "tasks": [item.dict() for item in task.tasks],
+                "reason": str(reason),
+                "timestamp": int(time.time() * 1000),
+            },
+            ensure_ascii=False,
+        )
+        if self.redis:
+            self.redis.lpush(self._dead_letter_queue(), payload)
+            self.redis.ltrim(self._dead_letter_queue(), 0, self.settings.dead_letter_maxlen - 1)
+            return
+
+        with self._lock:
+            self._dead_letters.appendleft(payload)

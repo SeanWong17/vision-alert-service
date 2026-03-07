@@ -20,6 +20,7 @@ from app.alerting.store import AlertStore
 from app.alerting.task_adapter import normalize_tasks, parse_confirm_payload, parse_upload_envelope
 from app.common.errors import AlertingError, ApiError
 from app.common.logging import logger
+from app.common.metrics import metrics
 
 
 class AlertService:
@@ -222,8 +223,14 @@ class AlertService:
                     timestamp=int(datetime.now().timestamp() * 1000),
                 ),
             )
+            metrics.inc_async_task("success")
         except Exception as exc:
             logger.exception("async task failed session=%s image=%s: %s", task.session_id, task.image_id, exc)
+            metrics.inc_async_task("failure")
+            try:
+                self.store.push_dead_letter(task, str(exc))
+            except Exception:
+                logger.exception("failed to write dead letter session=%s image=%s", task.session_id, task.image_id)
             try:
                 self.store.save_result(
                     task.session_id,

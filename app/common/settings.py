@@ -98,6 +98,9 @@ class AlertConfig(BaseModel):
     in_water_overlap_ratio: float = 0.08
     worker_poll_seconds: float = 0.05
     worker_threads: int = 4
+    worker_max_inflight: int = 64
+    dead_letter_queue: str = "alert:dead_letter"
+    dead_letter_maxlen: int = 1000
 
 
 class LicenseConfig(BaseModel):
@@ -223,6 +226,9 @@ class AlertSettings:
     in_water_overlap_ratio: float = 0.08
     worker_poll_seconds: float = 0.05
     worker_threads: int = 4
+    worker_max_inflight: int = 64
+    dead_letter_queue: str = "alert:dead_letter"
+    dead_letter_maxlen: int = 1000
 
     def pending_key(self, session_id: str) -> str:
         """生成 pending 哈希 key。"""
@@ -306,6 +312,9 @@ def load_alert_settings() -> AlertSettings:
         in_water_overlap_ratio=float(alert_cfg.in_water_overlap_ratio),
         worker_poll_seconds=max(0.01, float(alert_cfg.worker_poll_seconds)),
         worker_threads=max(1, int(os.getenv("ALERT_WORKER_THREADS", str(alert_cfg.worker_threads)))),
+        worker_max_inflight=max(1, int(os.getenv("ALERT_WORKER_MAX_INFLIGHT", str(alert_cfg.worker_max_inflight)))),
+        dead_letter_queue=os.getenv("ALERT_DEAD_LETTER_QUEUE", alert_cfg.dead_letter_queue),
+        dead_letter_maxlen=max(100, int(os.getenv("ALERT_DEAD_LETTER_MAXLEN", str(alert_cfg.dead_letter_maxlen)))),
     )
 
 

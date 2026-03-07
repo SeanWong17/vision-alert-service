@@ -2,6 +2,10 @@
 
 Base URL: `http://{host}:8011/api`
 
+公共说明：
+- 建议客户端传入 `X-Request-ID`，服务会在响应头原样返回；未传时服务自动生成。
+- 所有错误响应包含 `requestId` 字段，便于日志检索。
+
 ## 1. 异步上传
 - 方法：`POST /transmission/upload`
 - Content-Type：`multipart/form-data`
@@ -115,3 +119,37 @@ Base URL: `http://{host}:8011/api`
   - `file_name`：文件名
   - `tasks`：与异步上传同结构（支持多 ROI）
 - 返回：任务结果数组，结构与异步 `results` 一致。
+
+## 5. 存活探针
+- 方法：`GET /healthz`（注意：不带 `/api` 前缀）
+- 返回示例：
+```json
+{"status":"ok","timestamp":1700000000000}
+```
+
+## 6. 就绪探针
+- 方法：`GET /readyz`（注意：不带 `/api` 前缀）
+- 返回示例：
+```json
+{
+  "status":"ready",
+  "workerRunning":true,
+  "inflightTasks":0,
+  "storageMode":"redis",
+  "redisOk":true,
+  "licenseOk":true,
+  "queueLength":0,
+  "timestamp":1700000000000
+}
+```
+
+## 7. 指标导出
+- 方法：`GET /metrics`（注意：不带 `/api` 前缀）
+- 格式：Prometheus exposition text
+- 覆盖指标（当前）：
+  - `http_requests_total`
+  - `http_request_duration_seconds`（histogram）
+  - `async_tasks_total`
+  - `alert_queue_length`
+  - `alert_worker_inflight`
+  - `alert_dead_letter_size`
