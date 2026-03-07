@@ -16,9 +16,12 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from threading import Lock
+from time import time
 from typing import Any, Dict
 
 from cryptography.exceptions import InvalidSignature
@@ -26,6 +29,8 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from app.common.settings import LicenseSettings
+
+_logger = logging.getLogger(__name__)
 
 
 class LicenseError(RuntimeError):
@@ -167,3 +172,36 @@ def validate_license(settings: LicenseSettings) -> LicenseClaims:
             raise LicenseError("license machineId does not match current device")
 
     return claims
+
+
+class LicenseGuard:
+    """License 运行期守卫：按固定间隔复查授权状态。"""
+
+    def __init__(self, settings: LicenseSettings):
+        self.settings = settings
+        self._lock = Lock()
+        self._last_checked_ts = 0.0
+        self._last_error: str | None = None
+
+    def ensure_valid(self, force: bool = False) -> tuple[bool, str | None]:
+        """返回 (是否允许继续服务, 错误信息)。"""
+
+        now_ts = time()
+        with self._lock:
+            if not force and (now_ts - self._last_checked_ts) < float(self.settings.check_interval_seconds):
+                if self._last_error and not self.settings.fail_open:
+                    return False, self._last_error
+                return True, self._last_error
+
+            try:
+                validate_license(self.settings)
+                self._last_error = None
+                self._last_checked_ts = now_ts
+                return True, None
+            except LicenseError as exc:
+                self._last_error = str(exc)
+                self._last_checked_ts = now_ts
+                if self.settings.fail_open:
+                    _logger.warning("license recheck failed but fail_open enabled: %s", exc)
+                    return True, self._last_error
+                return False, self._last_error

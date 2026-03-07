@@ -89,6 +89,8 @@
     "__comment_require_machine_binding": "是否强制设备绑定（校验 machineId）",
     "require_machine_binding": true,
     "__comment_allow_hostname_fallback": "当 machine-id 缺失时是否回退 HOSTNAME（默认 false，更安全）",
-    "allow_hostname_fallback": false
+    "allow_hostname_fallback": false,
+    "__comment_check_interval_seconds": "运行期 license 复查间隔（秒）",
+    "check_interval_seconds": 300
   }
 }

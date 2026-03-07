@@ -20,6 +20,7 @@ services:
       - ALERT_LICENSE_PATH=/root/.ai_alerting/license/license.json
       - ALERT_LICENSE_PUBLIC_KEY_PATH=/root/.ai_alerting/license/public_key.pem
       - ALERT_LICENSE_ALLOW_HOSTNAME_FALLBACK=false
+      - ALERT_LICENSE_CHECK_INTERVAL_SECONDS=300
       - ALERT_CONFIG_STRICT=true
     volumes:
       # 运行目录挂载：日志、上传图、结果图、模型

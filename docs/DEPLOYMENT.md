@@ -52,6 +52,7 @@ docker compose up -d --build
 - `ALERT_LICENSE_PATH`：license 文件路径
 - `ALERT_LICENSE_PUBLIC_KEY_PATH`：Ed25519 公钥路径
 - `ALERT_LICENSE_ALLOW_HOSTNAME_FALLBACK`：machine-id 不可读时是否回退 hostname，默认 `false`
+- `ALERT_LICENSE_CHECK_INTERVAL_SECONDS`：运行期 license 复查间隔（秒），默认 `300`
 
 受保护构建（PyArmor）：
 ```bash
@@ -97,3 +98,11 @@ ALERT_LICENSE_ALLOW_HOSTNAME_FALLBACK: "false"
 - `docker-compose` 只能编排和传配置，无法单独实现“代码加密”。
 - 代码保护需在镜像构建阶段完成（如 `Dockerfile.protected` 的 PyArmor 流程）。
 - 更详细的威胁模型、流程和运维建议见：`docs/PROTECTION.md`。
+
+## 5. 配置损坏恢复（严格模式）
+默认 `ALERT_CONFIG_STRICT=true`，`runtime/config.json` 解析失败会阻止启动。
+
+应急恢复步骤：
+1. 临时将 `ALERT_CONFIG_STRICT=false` 启动服务，确保业务不中断。
+2. 修复 `runtime/config.json` 后恢复 `ALERT_CONFIG_STRICT=true`。
+3. 重启服务并确认配置已生效。

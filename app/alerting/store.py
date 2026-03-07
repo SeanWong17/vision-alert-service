@@ -207,8 +207,20 @@ class AlertStore:
                 )
                 _consume(new_resp)
 
-            # hasMore 语义改为“本批结果是否达到分页上限”，避免因 PEL 统计导致长期假阳性。
             has_more = len(rows) >= safe_limit
+            # 尝试用组统计信息收敛 hasMore 假阳性：
+            # pending 中扣除本批已返回条数后若仍有剩余，或 lag>0，说明仍有可消费项。
+            try:
+                groups = self.redis.xinfo_groups(stream_key)
+                group = next((item for item in groups if item.get("name") == group_name), None)
+                if group:
+                    pending_total = int(group.get("pending", 0))
+                    lag_raw = group.get("lag")
+                    lag_total = int(lag_raw) if lag_raw is not None else 0
+                    extra_pending = max(0, pending_total - len(rows))
+                    has_more = (extra_pending + lag_total) > 0
+            except Exception:
+                pass
             return rows, has_more
 
         with self._lock:

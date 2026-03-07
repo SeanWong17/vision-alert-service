@@ -14,7 +14,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.alerting import get_runtime
 from app.common.errors import AlertingError
-from app.common.license import LicenseError, validate_license
+from app.common.license import LicenseGuard
 from app.common.settings import load_license_settings
 from app.http import router
 from app.common.logging import logger
@@ -26,15 +26,16 @@ async def app_lifespan(_app: FastAPI):
 
     license_settings = load_license_settings()
     if license_settings.enabled:
-        # 启动期进行授权校验：失败时默认阻止服务启动（fail_open=false）。
-        try:
-            claims = validate_license(license_settings)
-            logger.info("license validated subject=%s expires_at=%s", claims.subject, claims.expires_at.isoformat())
-        except LicenseError as exc:
-            if license_settings.fail_open:
-                logger.warning("license validation failed but fail_open enabled: %s", exc)
-            else:
-                raise RuntimeError(f"license validation failed: {exc}") from exc
+        # 启动期先做一次强制校验，后续由中间件按间隔复查。
+        guard = LicenseGuard(license_settings)
+        ok, err = guard.ensure_valid(force=True)
+        if not ok:
+            raise RuntimeError(f"license validation failed: {err}")
+        if err:
+            logger.warning("license validation warning: %s", err)
+        _app.state.license_guard = guard
+    else:
+        _app.state.license_guard = None
 
     runtime = get_runtime()
     runtime["worker"].start()
@@ -53,6 +54,15 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def add_process_time_header(request: Request, call_next):
         """记录请求耗时并写入响应头。"""
+
+        guard = getattr(app.state, "license_guard", None)
+        if guard is not None:
+            ok, _err = guard.ensure_valid(force=False)
+            if not ok:
+                return JSONResponse(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    content={"message": "license validation failed", "status": False},
+                )
 
         start = time.time()
         response = await call_next(request)

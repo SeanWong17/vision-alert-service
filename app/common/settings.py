@@ -104,6 +104,7 @@ class LicenseConfig(BaseModel):
     fail_open: bool = False
     require_machine_binding: bool = True
     allow_hostname_fallback: bool = False
+    check_interval_seconds: int = 300
 
 
 class AppConfig(BaseModel):
@@ -249,6 +250,7 @@ class LicenseSettings:
     fail_open: bool = False
     require_machine_binding: bool = True
     allow_hostname_fallback: bool = False
+    check_interval_seconds: int = 300
 
 
 def _resolve_latest_model_root(base_dir: str) -> str:
@@ -327,5 +329,9 @@ def load_license_settings() -> LicenseSettings:
         allow_hostname_fallback=_env_bool(
             "ALERT_LICENSE_ALLOW_HOSTNAME_FALLBACK",
             bool(license_cfg.allow_hostname_fallback),
+        ),
+        check_interval_seconds=max(
+            5,
+            int(os.getenv("ALERT_LICENSE_CHECK_INTERVAL_SECONDS", str(license_cfg.check_interval_seconds))),
         ),
     )
