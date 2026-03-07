@@ -91,9 +91,11 @@ class AlertService:
         tasks = normalize_tasks(tasks_raw, self.settings)
         file_path = self._save_upload_file(file_name, image)
         outcome = self.pipeline.run(file_path, tasks)
+        task_results = self.pipeline.build_task_results(tasks, outcome)
+        has_alarm = any(item.reserved == "1" for item in task_results)
 
-        self._save_result_image(file_name, outcome.rendered_image, has_alarm=bool(outcome.detections))
-        return [item.dict() for item in self.pipeline.build_task_results(tasks, outcome)]
+        self._save_result_image(file_name, outcome.rendered_image, has_alarm=has_alarm)
+        return [item.dict() for item in task_results]
 
     def process_async_task(self, task: QueueTask) -> None:
         """消费单个异步任务并写回结果存储。"""
@@ -104,9 +106,11 @@ class AlertService:
             return
 
         outcome = self.pipeline.run(task.file_path, task.tasks)
-        results = [item.dict() for item in self.pipeline.build_task_results(task.tasks, outcome)]
+        task_results = self.pipeline.build_task_results(task.tasks, outcome)
+        results = [item.dict() for item in task_results]
+        has_alarm = any(item.reserved == "1" for item in task_results)
 
-        self._save_result_image(task.file_name, outcome.rendered_image, has_alarm=bool(outcome.detections))
+        self._save_result_image(task.file_name, outcome.rendered_image, has_alarm=has_alarm)
         self.store.save_result(
             task.session_id,
             task.image_id,

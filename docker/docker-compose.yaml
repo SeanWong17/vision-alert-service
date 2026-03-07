@@ -1,6 +1,7 @@
-version: "3.9"
+# Docker Compose 配置（Compose 规范下无需保留 version 字段）
 
 services:
+  # 告警服务
   ai_alerting:
     build:
       context: ..
@@ -14,10 +15,12 @@ services:
       - ALERT_DET_DEVICE=0
       - ALERT_SEG_DEVICE=cuda:0
     volumes:
+      # 运行目录挂载：日志、上传图、结果图、模型
       - ../runtime:/root/.ai_alerting
     depends_on:
       - redis
 
+  # Redis 队列与结果存储
   redis:
     image: redis:7-alpine
     container_name: ai_alerting_redis

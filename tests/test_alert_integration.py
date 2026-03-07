@@ -60,13 +60,15 @@ class AlertIntegrationTest(unittest.TestCase):
                     water_color={"water_ratio": 0.4},
                     shoreline_points=[[1, 1], [2, 2]],
                     rendered_image=np.zeros((16, 16, 3), dtype=np.uint8),
+                    image_width=16,
+                    image_height=16,
                 )
 
             def build_task_results(self, tasks, outcome):
                 """将固定结果包装为任务返回。"""
 
                 _ = outcome
-                return [TaskResult(id=task.id, reserved="1", detail=[{"foo": "bar"}]) for task in tasks]
+                return [TaskResult(id=task.id, reserved="1", detail={"roiResults": [{"targetCount": 1}]}) for task in tasks]
 
         from app.alerting.service import AlertService
         from app.alerting.store import AlertStore

@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 
 from app.alerting.config import AlertSettings
-from app.alerting.schemas import AlarmTask, DetectionBox, TaskResult
+from app.alerting.schemas import AlarmTask, DetectionBox, RoiRule, TaskResult
 from app.common.logging import logger
 from app.adapters.vision.detector import YoloDetector
 from app.adapters.vision.segmentor import MmsegSegmentor
@@ -25,6 +25,8 @@ class InferenceOutcome:
     water_color: Dict[str, float]
     shoreline_points: List[List[int]]
     rendered_image: np.ndarray
+    image_width: int
+    image_height: int
 
 
 class AlertPipeline:
@@ -80,23 +82,6 @@ class AlertPipeline:
             logger.info("models loaded from %s", self.settings.model_root)
 
     @staticmethod
-    def _roi_filter(detections: List[DetectionBox], roi: List[int]) -> List[DetectionBox]:
-        """按 ROI 过滤检测框。"""
-
-        if not roi or roi[0] < 0:
-            return detections
-
-        rx1, ry1, rx2, ry2 = roi[:4]
-        keep: List[DetectionBox] = []
-        for det in detections:
-            x1, y1, x2, y2 = det.coordinate
-            ix1, iy1 = max(x1, rx1), max(y1, ry1)
-            ix2, iy2 = min(x2, rx2), min(y2, ry2)
-            if max(0, ix2 - ix1) * max(0, iy2 - iy1) > 0:
-                keep.append(det)
-        return keep
-
-    @staticmethod
     def _build_water_color(image: np.ndarray, mask: np.ndarray) -> Dict[str, float]:
         """计算水面区域颜色均值与面积占比。"""
 
@@ -131,12 +116,6 @@ class AlertPipeline:
         """计算每个像素到最近水面边界的距离图。"""
 
         return cv2.distanceTransform((mask == 0).astype(np.uint8), cv2.DIST_L2, 3)
-
-    @staticmethod
-    def _person_like(label: str) -> bool:
-        """判断类别是否属于人员相关目标。"""
-
-        return (label or "").lower() in {"person", "adult", "teenager", "swim", "rodster"}
 
     def _to_detection_boxes(self, raw_det: List[List[Any]], water_mask: np.ndarray) -> List[DetectionBox]:
         """将原始检测结果映射为带水面关系特征的检测框。"""
@@ -173,41 +152,73 @@ class AlertPipeline:
             )
         return boxes
 
+    @staticmethod
+    def _is_full_image_roi(roi: List[int]) -> bool:
+        """判断是否为全图 ROI 哨兵值。"""
+
+        return len(roi) >= 4 and roi[0] == -1 and roi[1] == -1 and roi[2] == -1 and roi[3] == -1
+
+    @staticmethod
+    def _bbox_intersects_roi(bbox: List[int], roi: List[int]) -> bool:
+        """判断检测框与 ROI 是否相交。"""
+
+        x1, y1, x2, y2 = bbox
+        rx1, ry1, rx2, ry2 = roi
+        ix1, iy1 = max(x1, rx1), max(y1, ry1)
+        ix2, iy2 = min(x2, rx2), min(y2, ry2)
+        return max(0, ix2 - ix1) * max(0, iy2 - iy1) > 0
+
+    def _filter_targets_for_roi(
+        self,
+        detections: List[DetectionBox],
+        roi_rule: RoiRule,
+        image_width: int,
+        image_height: int,
+    ) -> List[Dict[str, Any]]:
+        """按 ROI、类别、阈值筛选告警目标。"""
+
+        roi = list(roi_rule.coordinate)
+        if self._is_full_image_roi(roi):
+            roi = [0, 0, image_width, image_height]
+
+        class_set = {c.lower() for c in roi_rule.classes if c}
+        targets: List[Dict[str, Any]] = []
+        for det in detections:
+            if det.score < roi_rule.confThreshold:
+                continue
+            if class_set and det.tagName.lower() not in class_set:
+                continue
+            if not self._bbox_intersects_roi(det.coordinate, roi):
+                continue
+            targets.append(det.dict())
+
+        return targets
+
     def _draw_render(
         self,
         image: np.ndarray,
         water_mask: np.ndarray,
         all_boxes: List[DetectionBox],
-        alert_boxes: List[DetectionBox],
         shoreline: List[List[int]],
     ) -> np.ndarray:
-        """绘制掩膜、框和岸线，输出标注图。"""
+        """绘制掩膜、检测框和岸线，输出标注图。"""
 
         canvas = image.copy()
 
-        # 半透明叠加水面区域，提升排障可读性。
         overlay = np.zeros_like(canvas)
         overlay[water_mask > 0] = (255, 0, 0)
         canvas = cv2.addWeighted(canvas, 1.0, overlay, 0.25, 0)
 
-        alert_keys = {tuple(box.coordinate) for box in alert_boxes}
         for det in all_boxes:
             x1, y1, x2, y2 = det.coordinate
-            is_alert = tuple(det.coordinate) in alert_keys
-            color = (0, 0, 255) if is_alert else (0, 255, 0)
-            label = det.tagName
-            if is_alert and det.tagName in {"person", "adult", "teenager", "swim", "rodster"}:
-                match = next((x for x in alert_boxes if x.coordinate == det.coordinate), None)
-                if match:
-                    label = match.tagName
-            cv2.rectangle(canvas, (x1, y1), (x2, y2), color, 2)
+            cv2.rectangle(canvas, (x1, y1), (x2, y2), (0, 255, 0), 2)
             cv2.putText(
                 canvas,
-                f"{label}:{det.score:.2f}",
+                f"{det.tagName}:{det.score:.2f}",
                 (x1, max(16, y1 - 8)),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.5,
-                color,
+                (0, 255, 0),
                 1,
                 cv2.LINE_AA,
             )
@@ -229,38 +240,62 @@ class AlertPipeline:
         water_mask = self._segmentor.predict_mask(image)
 
         detections = self._to_detection_boxes(raw_det, water_mask)
-        roi = list(tasks[0].params.get("coordinate", self.settings.roi_default)) if tasks else list(self.settings.roi_default)
-        detections = self._roi_filter(detections, roi)
-
-        # 根据重叠比例和距离规则生成告警目标。
-        alerts: List[DetectionBox] = []
-        for det in detections:
-            if not self._person_like(det.tagName):
-                continue
-            if det.overlapWater >= self.settings.in_water_overlap_ratio:
-                alerts.append(det.copy(update={"tagName": "enter_water"}))
-            elif det.distanceToWater <= self.settings.near_water_distance_px:
-                alerts.append(det.copy(update={"tagName": "near_water"}))
 
         water_mask_binary = (water_mask > 0).astype(np.uint8)
         shoreline = self._extract_shoreline(water_mask_binary)
+        height, width = image.shape[:2]
         return InferenceOutcome(
-            detections=alerts,
+            detections=detections,
             water_color=self._build_water_color(image, water_mask_binary),
             shoreline_points=shoreline,
-            rendered_image=self._draw_render(image, water_mask_binary, detections, alerts, shoreline),
+            rendered_image=self._draw_render(image, water_mask_binary, detections, shoreline),
+            image_width=width,
+            image_height=height,
         )
 
     def build_task_results(self, tasks: List[AlarmTask], outcome: InferenceOutcome) -> List[TaskResult]:
-        """将推理结果映射为对外任务结果格式。"""
-
-        detail = [{"water_color_dict": outcome.water_color}]
-        detail.extend([box.dict() for box in outcome.detections])
-        detail.append({"shoreline_points": outcome.shoreline_points})
+        """将推理结果映射为对外任务结果格式（含 ROI 维度告警详情）。"""
 
         results: List[TaskResult] = []
         for task in tasks:
+            rois_raw = task.params.get("rois", [])
+            roi_rules = [RoiRule(**item) for item in rois_raw] if isinstance(rois_raw, list) else []
+            if not roi_rules:
+                roi_rules = [RoiRule(coordinate=[-1, -1, -1, -1], classes=[], confThreshold=0.5)]
+
+            roi_results: List[Dict[str, Any]] = []
+            total_targets = 0
+            for roi_rule in roi_rules:
+                targets = self._filter_targets_for_roi(
+                    detections=outcome.detections,
+                    roi_rule=roi_rule,
+                    image_width=outcome.image_width,
+                    image_height=outcome.image_height,
+                )
+                total_targets += len(targets)
+                roi_results.append(
+                    {
+                        "roiId": roi_rule.roiId,
+                        "coordinate": roi_rule.coordinate,
+                        "classes": roi_rule.classes,
+                        "confThreshold": roi_rule.confThreshold,
+                        "targetCount": len(targets),
+                        "alertClasses": sorted(list({t["tagName"] for t in targets})),
+                        "targets": targets,
+                    }
+                )
+
             task_limit = int(task.params.get("limit", self.settings.default_limit))
-            reserved = "1" if len(outcome.detections) > task_limit else "0"
-            results.append(TaskResult(id=task.id, reserved=reserved, detail=detail))
+            reserved = "1" if total_targets > task_limit else "0"
+            results.append(
+                TaskResult(
+                    id=task.id,
+                    reserved=reserved,
+                    detail={
+                        "roiResults": roi_results,
+                        "waterColor": outcome.water_color,
+                        "shorelinePoints": outcome.shoreline_points,
+                    },
+                )
+            )
         return results

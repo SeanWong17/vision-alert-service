@@ -23,7 +23,24 @@ def run_sync(host: str, port: int, image_path: str) -> None:
         files = {"image": (image_path, fp, "image/jpeg")}
         data = {
             "file_name": image_path.split("/")[-1],
-            "tasks": json.dumps([{"id": 1, "params": {"limit": 0, "coordinate": [-1, -1, -1, -1]}}]),
+            "tasks": json.dumps(
+                [
+                    {
+                        "id": 1,
+                        "params": {
+                            "limit": 0,
+                            "rois": [
+                                {
+                                    "roiId": "full-image",
+                                    "coordinate": [-1, -1, -1, -1],
+                                    "classes": [],
+                                    "confThreshold": 0.5,
+                                }
+                            ],
+                        },
+                    }
+                ]
+            ),
         }
         response = requests.post(url, files=files, data=data, timeout=30)
     response.raise_for_status()
@@ -40,7 +57,24 @@ def run_async(host: str, port: int, image_path: str) -> None:
         files = {"file": (image_path, fp, "image/jpeg")}
         data = {
             "FileUpload": json.dumps({"filename": image_path.split("/")[-1], "sessionId": session_id}),
-            "tasks": json.dumps([{"id": 1, "params": {"limit": 0}}]),
+            "tasks": json.dumps(
+                [
+                    {
+                        "id": 1,
+                        "params": {
+                            "limit": 0,
+                            "rois": [
+                                {
+                                    "roiId": "full-image",
+                                    "coordinate": [-1, -1, -1, -1],
+                                    "classes": [],
+                                    "confThreshold": 0.5,
+                                }
+                            ],
+                        },
+                    }
+                ]
+            ),
         }
         upload_res = requests.post(upload_url, files=files, data=data, timeout=30)
     upload_res.raise_for_status()

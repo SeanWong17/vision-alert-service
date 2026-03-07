@@ -29,7 +29,7 @@ mkdir -p runtime/log runtime/images/upload runtime/images/result runtime/models/
 - `seg_model.pt`
 
 ## 3. Docker
-Docker 文件在 `docker/` 目录。
+Docker 文件在 `docker/` 目录（compose 文件名为 `docker-compose.yaml`）。
 
 启动：
 ```bash

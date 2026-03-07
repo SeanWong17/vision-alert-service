@@ -18,6 +18,15 @@ class DetectionBox(BaseModel):
     distanceToWater: float = 0.0
 
 
+class RoiRule(BaseModel):
+    """单个 ROI 的告警规则。"""
+
+    roiId: str = ""
+    coordinate: List[int] = Field(default_factory=lambda: [-1, -1, -1, -1])
+    classes: List[str] = Field(default_factory=list)
+    confThreshold: float = 0.5
+
+
 class AlarmTask(BaseModel):
     """标准化后的任务定义。"""
 
@@ -30,7 +39,7 @@ class TaskResult(BaseModel):
 
     id: Any = None
     reserved: str = "0"
-    detail: List[Dict[str, Any]] = Field(default_factory=list)
+    detail: Dict[str, Any] = Field(default_factory=dict)
 
 
 class UploadEnvelope(BaseModel):

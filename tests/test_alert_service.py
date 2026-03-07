@@ -59,13 +59,15 @@ class AlertServiceTest(unittest.TestCase):
                     water_color={"water_ratio": 0.5},
                     shoreline_points=[[1, 1], [2, 2]],
                     rendered_image=np.zeros((16, 16, 3), dtype=np.uint8),
+                    image_width=16,
+                    image_height=16,
                 )
 
             def build_task_results(self, tasks, outcome):
                 """返回固定任务结果。"""
 
                 _ = outcome
-                detail = [{"water_color_dict": {"water_ratio": 0.5}}]
+                detail = {"roiResults": [{"targetCount": 1}]}
                 return [TaskResult(id=task.id, reserved="1", detail=detail) for task in tasks]
 
         from app.alerting.schemas import StoredResult

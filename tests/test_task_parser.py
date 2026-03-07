@@ -36,7 +36,9 @@ class TaskAdapterTest(unittest.TestCase):
 
         settings = AlertSettings(upload_root="/tmp/u", result_root="/tmp/r", model_root="/tmp/m")
         tasks = normalize_tasks({"tasks": [{"id": 2, "params": {}}]}, settings)
-        self.assertEqual(tasks[0].params["coordinate"], list(settings.roi_default))
+        rois = tasks[0].params["rois"]
+        self.assertEqual(rois[0]["coordinate"], list(settings.roi_default))
+        self.assertEqual(rois[0]["confThreshold"], 0.5)
 
     def test_invalid_shape_raises(self):
         """非法任务结构应抛出领域异常。"""
@@ -48,6 +50,40 @@ class TaskAdapterTest(unittest.TestCase):
         settings = AlertSettings(upload_root="/tmp/u", result_root="/tmp/r", model_root="/tmp/m")
         with self.assertRaises(AlertingError):
             normalize_tasks({"foo": []}, settings)
+
+    def test_multi_roi_is_normalized(self):
+        """多 ROI 规则应保留类别与阈值。"""
+
+        from app.alerting.config import AlertSettings
+        from app.alerting.task_adapter import normalize_tasks
+
+        settings = AlertSettings(upload_root="/tmp/u", result_root="/tmp/r", model_root="/tmp/m")
+        tasks = normalize_tasks(
+            {
+                "tasks": [
+                    {
+                        "id": 3,
+                        "params": {
+                            "rois": [
+                                {
+                                    "roiId": "r1",
+                                    "coordinate": [1, 2, 100, 120],
+                                    "classes": ["person", "car"],
+                                    "confThreshold": 0.7,
+                                },
+                                {"roiId": "r2", "coordinate": [-1, -1, -1, -1], "classes": [], "confThreshold": 0.5},
+                            ]
+                        },
+                    }
+                ]
+            },
+            settings,
+        )
+        rois = tasks[0].params["rois"]
+        self.assertEqual(len(rois), 2)
+        self.assertEqual(rois[0]["roiId"], "r1")
+        self.assertEqual(rois[0]["classes"], ["person", "car"])
+        self.assertEqual(rois[0]["confThreshold"], 0.7)
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ import json
 from typing import Any, Dict, List, Tuple
 
 from app.alerting.config import AlertSettings
-from app.alerting.schemas import AlarmTask, ConfirmPayload, UploadEnvelope
+from app.alerting.schemas import AlarmTask, ConfirmPayload, RoiRule, UploadEnvelope
 from app.common.errors import AlertingError
 
 
@@ -24,6 +24,37 @@ def _to_object(value: Any) -> Dict[str, Any]:
             raise AlertingError(message="payload json must be an object")
         return decoded
     raise AlertingError(message="payload must be a dict or json string")
+
+
+def _normalize_roi(raw_roi: Any, roi_default: List[int]) -> RoiRule:
+    """将单个 ROI 规则归一化为标准结构。"""
+
+    if not isinstance(raw_roi, dict):
+        raise AlertingError(message="roi item must be an object")
+
+    coordinate = raw_roi.get("coordinate", roi_default)
+    if not isinstance(coordinate, list) or len(coordinate) < 4:
+        coordinate = list(roi_default)
+    else:
+        coordinate = [int(v) for v in coordinate[:4]]
+
+    classes = raw_roi.get("classes", [])
+    if not isinstance(classes, list):
+        classes = []
+    classes = [str(x) for x in classes]
+
+    try:
+        threshold = float(raw_roi.get("confThreshold", 0.5))
+    except Exception:
+        threshold = 0.5
+    threshold = min(max(threshold, 0.0), 1.0)
+
+    return RoiRule(
+        roiId=str(raw_roi.get("roiId", "")),
+        coordinate=coordinate,
+        classes=classes,
+        confThreshold=threshold,
+    )
 
 
 def parse_upload_envelope(file_upload: Any) -> UploadEnvelope:
@@ -69,19 +100,20 @@ def normalize_tasks(raw_tasks: Any, settings: AlertSettings) -> List[AlarmTask]:
         if not isinstance(params, dict):
             raise AlertingError(message="task params must be an object")
 
-        # 限制值统一为非负整数。
         try:
             params["limit"] = max(0, int(params.get("limit", settings.default_limit)))
         except Exception:
             params["limit"] = settings.default_limit
 
-        # 坐标统一为 4 元整数，非法时回退默认哨兵值。
-        roi = params.get("coordinate", list(settings.roi_default))
-        if not isinstance(roi, list) or len(roi) < 4:
-            params["coordinate"] = list(settings.roi_default)
+        rois = params.get("rois")
+        normalized_rois: List[RoiRule] = []
+        if isinstance(rois, list) and rois:
+            normalized_rois = [_normalize_roi(roi, list(settings.roi_default)) for roi in rois]
         else:
-            params["coordinate"] = [int(v) for v in roi[:4]]
+            # 无 ROI 时默认全图，类别为全部，阈值 0.5。
+            normalized_rois = [RoiRule(coordinate=list(settings.roi_default), classes=[], confThreshold=0.5)]
 
+        params["rois"] = [rule.dict() for rule in normalized_rois]
         normalized.append(AlarmTask(**candidate))
 
     return normalized

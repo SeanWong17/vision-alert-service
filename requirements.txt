@@ -1,19 +1,19 @@
-# Web runtime
+# Web 服务运行依赖
 fastapi
 uvicorn
 click
 python-multipart
 
-# Core runtime
+# 核心运行依赖
 pydantic<2
 numpy
 opencv-python-headless
 redis
 requests
 
-# Inference runtime
+# 推理运行依赖
 torch
 ultralytics==8.3.0
 mmengine==0.8.4
 mmsegmentation==1.2.2
-# mmcv must match CUDA/PyTorch build. Install with openmim in deployment.
+# mmcv 需要与 CUDA/PyTorch 版本匹配，建议在部署环境用 openmim 单独安装
