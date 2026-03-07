@@ -63,6 +63,7 @@ class AlertStoreTest(unittest.TestCase):
         rows, has_more = self.store.fetch_results("s1", limit=10)
         self.assertFalse(has_more)
         self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["imageId"], "img-1")
 
         self.store.save_result(
             "s1",
@@ -71,7 +72,27 @@ class AlertStoreTest(unittest.TestCase):
         )
         self.store.confirm_results("s1", ["img-2"])
         rows2, _ = self.store.fetch_results("s1", limit=10)
-        self.assertEqual(rows2, [])
+        self.assertEqual(len(rows2), 1)
+        self.assertEqual(rows2[0]["imageId"], "img-1")
+
+        self.store.confirm_results("s1", ["img-1"])
+        rows3, _ = self.store.fetch_results("s1", limit=10)
+        self.assertEqual(rows3, [])
+
+    def test_discard_pending_removes_snapshot(self):
+        """异常兜底调用 discard_pending 后应清理 pending。"""
+
+        task = self.QueueTask(
+            image_id="img-p",
+            session_id="s-p",
+            file_name="p.jpg",
+            file_path="/tmp/p.jpg",
+            tasks=[self.AlarmTask(id=1, params={"limit": 1})],
+        )
+        self.store.enqueue(task)
+        self.assertIsNotNone(self.store.get_pending("s-p", "img-p"))
+        self.store.discard_pending("s-p", "img-p")
+        self.assertIsNone(self.store.get_pending("s-p", "img-p"))
 
     def test_fetch_and_confirm_results_use_stream_ack(self):
         """Redis 分支应走 stream 消费并在确认时 ack+del。"""

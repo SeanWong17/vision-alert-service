@@ -5,6 +5,7 @@ import os
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 
 def _runtime_ready() -> bool:
@@ -233,6 +234,45 @@ class AlertServiceTest(unittest.TestCase):
         self.assertFalse(os.path.exists(old_upload))
         self.assertFalse(os.path.exists(old_result))
         self.assertTrue(os.path.exists(new_upload))
+
+    def test_process_async_task_failure_persists_error_result_and_clears_pending(self):
+        """异步任务失败时应落失败结果且清理 pending。"""
+
+        from app.alerting.schemas import AlarmTask, QueueTask
+
+        class _BrokenPipeline:
+            def run(self, _image_path, _tasks):
+                raise RuntimeError("inference exploded")
+
+            def build_task_results(self, _tasks, _outcome):
+                raise AssertionError("should not be called")
+
+        self.service.pipeline = _BrokenPipeline()
+        task = QueueTask(
+            image_id="img-fail",
+            session_id="S7",
+            file_name="cam_fail.jpg",
+            file_path="/tmp/not-exist.jpg",
+            tasks=[AlarmTask(id=11, params={"limit": 1})],
+        )
+        self.store.enqueue(task)
+        self.service.process_async_task(task)
+
+        self.assertIsNone(self.store.get_pending("S7", "img-fail"))
+        rows, _ = self.store.fetch_results("S7")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["results"][0]["id"], 11)
+        self.assertEqual(rows[0]["results"][0]["reserved"], "0")
+        self.assertIn("inference exploded", rows[0]["results"][0]["detail"]["error"])
+
+    def test_analyze_sync_raises_when_result_image_write_fails(self):
+        """结果图保存失败时应抛异常，避免静默成功。"""
+
+        image = self.DummyUpload("cam_4.jpg", b"456", content_type="image/jpeg")
+        tasks = [{"id": 8, "params": {"limit": 0}}]
+        with patch("app.alerting.service.cv2.imwrite", return_value=False):
+            with self.assertRaises(RuntimeError):
+                self.service.analyze_sync(image, "cam_4.jpg", tasks)
 
 
 if __name__ == "__main__":

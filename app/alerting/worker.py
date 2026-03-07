@@ -58,7 +58,17 @@ class AlertWorker:
                 if not task:
                     time.sleep(self.poll_seconds)
                     continue
-                self._executor.submit(self.service.process_async_task, task)
+                future = self._executor.submit(self.service.process_async_task, task)
+                future.add_done_callback(self._log_task_exception)
             except Exception as exc:
                 logger.exception("alert worker loop error: %s", exc)
                 time.sleep(self.poll_seconds)
+
+    @staticmethod
+    def _log_task_exception(future) -> None:
+        """记录线程池任务异常，避免 silent failure。"""
+
+        try:
+            future.result()
+        except Exception as exc:
+            logger.exception("alert worker task crashed unexpectedly: %s", exc)

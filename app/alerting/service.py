@@ -140,8 +140,24 @@ class AlertService:
         stem, ext = os.path.splitext(file_name)
         save_name = f"{stem}_ALARM{ext}" if has_alarm else file_name
         save_path = os.path.join(folder, save_name)
-        cv2.imwrite(save_path, image)
+        if not cv2.imwrite(save_path, image):
+            raise RuntimeError(f"failed to write result image: {save_path}")
         return save_path
+
+    @staticmethod
+    def _build_failure_results(task: QueueTask, error_message: str) -> List[Dict[str, Any]]:
+        """构造异步失败时的结果载荷，避免调用方一直等待。"""
+
+        rows: List[Dict[str, Any]] = []
+        for item in task.tasks:
+            rows.append(
+                {
+                    "id": item.id,
+                    "reserved": "0",
+                    "detail": {"error": str(error_message)},
+                }
+            )
+        return rows
 
     def submit_async(self, upload: UploadFile, file_upload_raw: Any, tasks_raw: Any) -> Dict[str, Any]:
         """提交异步任务：接收入参、保存原图、写入队列。"""
@@ -189,22 +205,43 @@ class AlertService:
             logger.warning("pending task missing session=%s image=%s", task.session_id, task.image_id)
             return
 
-        outcome = self.pipeline.run(task.file_path, task.tasks)
-        task_results = self.pipeline.build_task_results(task.tasks, outcome)
-        results = [item.dict() for item in task_results]
-        has_alarm = any(item.reserved == "1" for item in task_results)
+        try:
+            outcome = self.pipeline.run(task.file_path, task.tasks)
+            task_results = self.pipeline.build_task_results(task.tasks, outcome)
+            results = [item.dict() for item in task_results]
+            has_alarm = any(item.reserved == "1" for item in task_results)
 
-        self._save_result_image(task.file_name, outcome.rendered_image, has_alarm=has_alarm)
-        self.store.save_result(
-            task.session_id,
-            task.image_id,
-            StoredResult(
-                imageId=task.image_id,
-                filename=task.file_name,
-                results=results,
-                timestamp=int(datetime.now().timestamp() * 1000),
-            ),
-        )
+            self._save_result_image(task.file_name, outcome.rendered_image, has_alarm=has_alarm)
+            self.store.save_result(
+                task.session_id,
+                task.image_id,
+                StoredResult(
+                    imageId=task.image_id,
+                    filename=task.file_name,
+                    results=results,
+                    timestamp=int(datetime.now().timestamp() * 1000),
+                ),
+            )
+        except Exception as exc:
+            logger.exception("async task failed session=%s image=%s: %s", task.session_id, task.image_id, exc)
+            try:
+                self.store.save_result(
+                    task.session_id,
+                    task.image_id,
+                    StoredResult(
+                        imageId=task.image_id,
+                        filename=task.file_name,
+                        results=self._build_failure_results(task, str(exc)),
+                        timestamp=int(datetime.now().timestamp() * 1000),
+                    ),
+                )
+            except Exception:
+                logger.exception(
+                    "failed to persist async failure result session=%s image=%s",
+                    task.session_id,
+                    task.image_id,
+                )
+                self.store.discard_pending(task.session_id, task.image_id)
 
     def get_alarm_result(self, session_id: str) -> Dict[str, Any]:
         """按会话拉取一批异步结果（现代字段：items）。"""

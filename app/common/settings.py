@@ -2,7 +2,7 @@
 
 配置来源优先级（高 -> 低）：
 1. 环境变量（部署时临时覆盖）
-2. runtime/config.json（长期配置）
+2. 配置文件（默认 runtime/config.json，可由 ALERT_CONFIG_PATH 覆盖）
 3. 代码默认值（兜底）
 """
 
@@ -19,7 +19,12 @@ from pydantic import BaseModel
 
 HOME_PATH = op.expanduser("~")
 APP_HOME = op.join(HOME_PATH, ".ai_alerting")
-DEFAULT_CONFIG_PATH = op.join(APP_HOME, "config.json")
+LEGACY_CONFIG_PATH = op.join(APP_HOME, "config.json")
+RUNTIME_CONFIG_PATH = op.abspath(op.join(op.dirname(__file__), "..", "..", "runtime", "config.json"))
+DEFAULT_CONFIG_PATH = os.getenv(
+    "ALERT_CONFIG_PATH",
+    RUNTIME_CONFIG_PATH if os.path.exists(RUNTIME_CONFIG_PATH) else LEGACY_CONFIG_PATH,
+)
 _logger = logging.getLogger(__name__)
 
 

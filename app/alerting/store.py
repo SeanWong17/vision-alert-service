@@ -230,7 +230,6 @@ class AlertStore:
             rows = []
             for image_id in image_ids[:limit]:
                 rows.append(json.loads(image_map[image_id]))
-                del image_map[image_id]
             return rows, has_more
 
     def confirm_results(self, session_id: str, image_ids: List[str]) -> None:
@@ -258,3 +257,13 @@ class AlertStore:
             bucket = self._results.get(session_id, {})
             for image_id in image_ids:
                 bucket.pop(image_id, None)
+
+    def discard_pending(self, session_id: str, image_id: str) -> None:
+        """主动删除 pending 任务（用于异常兜底，避免任务长期滞留）。"""
+
+        if self.redis:
+            self.redis.hdel(self._pending_key(session_id), image_id)
+            return
+
+        with self._lock:
+            self._pending.get(session_id, {}).pop(image_id, None)
