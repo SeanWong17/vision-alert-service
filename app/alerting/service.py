@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import time
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List
@@ -55,6 +56,50 @@ class AlertService:
 
         if upload.content_type not in self.settings.allowed_image_types:
             raise ApiError(status_code=HTTP_422_UNPROCESSABLE_ENTITY, message="The file is not an image")
+
+    @staticmethod
+    def _cleanup_older_than(root_dir: str, expire_ts: float) -> int:
+        """删除目录下早于指定时间戳的文件，并清理空目录。"""
+
+        removed = 0
+        if not os.path.isdir(root_dir):
+            return removed
+
+        for current_root, dirs, files in os.walk(root_dir, topdown=False):
+            for name in files:
+                path = os.path.join(current_root, name)
+                try:
+                    if os.path.getmtime(path) < expire_ts:
+                        os.remove(path)
+                        removed += 1
+                except Exception:
+                    continue
+
+            for name in dirs:
+                directory = os.path.join(current_root, name)
+                try:
+                    if not os.listdir(directory):
+                        os.rmdir(directory)
+                except Exception:
+                    continue
+        return removed
+
+    def cleanup_expired_images(self) -> int:
+        """清理过期上传图和结果图，默认保留一个月。"""
+
+        expire_ts = time.time() - float(self.settings.image_retention_days * 24 * 3600)
+        removed_upload = self._cleanup_older_than(self.settings.upload_root, expire_ts)
+        removed_result = self._cleanup_older_than(self.settings.result_root, expire_ts)
+        removed_total = removed_upload + removed_result
+        if removed_total:
+            logger.info(
+                "cleanup expired images removed=%d upload=%d result=%d retention_days=%d",
+                removed_total,
+                removed_upload,
+                removed_result,
+                self.settings.image_retention_days,
+            )
+        return removed_total
 
     def _save_upload_file(self, file_name: str, file_obj: UploadFile) -> str:
         """保存上传原图并返回本地路径。"""

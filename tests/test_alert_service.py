@@ -3,6 +3,7 @@
 import io
 import os
 import tempfile
+import time
 import unittest
 
 
@@ -204,6 +205,34 @@ class AlertServiceTest(unittest.TestCase):
 
         saved_path = os.path.join(self.service.settings.upload_root, "cam", "cam_oversize.jpg")
         self.assertFalse(os.path.exists(saved_path))
+
+    def test_cleanup_expired_images_keeps_recent_and_removes_old(self):
+        """图片清理应删除过期文件，保留未过期文件。"""
+
+        self.service.settings.image_retention_days = 30
+        now = time.time()
+        old_ts = now - 31 * 24 * 3600
+
+        upload_dir = os.path.join(self.service.settings.upload_root, "cam")
+        result_dir = os.path.join(self.service.settings.result_root, "alerts", "cam")
+        os.makedirs(upload_dir, exist_ok=True)
+        os.makedirs(result_dir, exist_ok=True)
+
+        old_upload = os.path.join(upload_dir, "old.jpg")
+        old_result = os.path.join(result_dir, "old_result.jpg")
+        new_upload = os.path.join(upload_dir, "new.jpg")
+        for path in [old_upload, old_result, new_upload]:
+            with open(path, "wb") as fh:
+                fh.write(b"x")
+
+        os.utime(old_upload, (old_ts, old_ts))
+        os.utime(old_result, (old_ts, old_ts))
+
+        removed = self.service.cleanup_expired_images()
+        self.assertEqual(removed, 2)
+        self.assertFalse(os.path.exists(old_upload))
+        self.assertFalse(os.path.exists(old_result))
+        self.assertTrue(os.path.exists(new_upload))
 
 
 if __name__ == "__main__":

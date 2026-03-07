@@ -143,6 +143,8 @@ class AlertSettings:
     result_claim_idle_ms: int = 60000
     upload_max_bytes: int = 20 * 1024 * 1024
     allowed_image_types: tuple[str, ...] = ("image/jpg", "image/jpeg", "image/png")
+    image_retention_days: int = 30
+    cleanup_scan_interval_seconds: int = 3600
     default_limit: int = 1
     roi_default: tuple[int, int, int, int] = (-1, -1, -1, -1)
     near_water_distance_px: int = 24
@@ -193,4 +195,6 @@ def load_alert_settings() -> AlertSettings:
         worker_threads=max(1, int(os.getenv("ALERT_WORKER_THREADS", "4"))),
         result_claim_idle_ms=max(1000, int(os.getenv("ALERT_RESULT_CLAIM_IDLE_MS", "60000"))),
         upload_max_bytes=max(1024 * 1024, int(os.getenv("ALERT_UPLOAD_MAX_BYTES", str(20 * 1024 * 1024)))),
+        image_retention_days=max(1, int(os.getenv("ALERT_IMAGE_RETENTION_DAYS", "30"))),
+        cleanup_scan_interval_seconds=max(60, int(os.getenv("ALERT_CLEANUP_SCAN_INTERVAL_SECONDS", "3600"))),
     )

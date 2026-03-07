@@ -28,9 +28,9 @@ def build_logger(log_dir: str, log_name: str = "ai_alerting.log", level: int = l
 
     file_handler = TimedRotatingFileHandler(
         os.path.join(log_dir, log_name),
-        when="H",
+        when="D",
         interval=1,
-        backupCount=72,
+        backupCount=30,
         encoding="utf-8",
     )
     file_handler.setFormatter(formatter)

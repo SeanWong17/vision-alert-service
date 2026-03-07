@@ -39,3 +39,8 @@ docker compose up -d --build
 
 容器映射：
 - 容器 `/root/.ai_alerting` -> 宿主 `runtime`
+
+常用环境变量（可在 `docker-compose.yaml` 中配置）：
+- `ALERT_IMAGE_RETENTION_DAYS`：上传图与结果图保留天数，默认 `30`
+- `ALERT_CLEANUP_SCAN_INTERVAL_SECONDS`：清理扫描周期（秒），默认 `3600`
+- `ALERT_UPLOAD_MAX_BYTES`：单张上传最大字节数，默认 `20971520`（20MB）

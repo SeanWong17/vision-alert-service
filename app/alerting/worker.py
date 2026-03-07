@@ -23,6 +23,7 @@ class AlertWorker:
         self._executor = ThreadPoolExecutor(max_workers=self.max_workers, thread_name_prefix="alert-worker")
         self._thread = threading.Thread(target=self._loop, name="alert-queue-consumer", daemon=True)
         self._stop = threading.Event()
+        self._last_cleanup_ts = 0.0
 
     def start(self) -> None:
         """启动消费线程（幂等）。"""
@@ -48,6 +49,11 @@ class AlertWorker:
 
         while not self._stop.is_set():
             try:
+                now = time.time()
+                if now - self._last_cleanup_ts >= float(self.service.settings.cleanup_scan_interval_seconds):
+                    self.service.cleanup_expired_images()
+                    self._last_cleanup_ts = now
+
                 task = self.service.store.pop()
                 if not task:
                     time.sleep(self.poll_seconds)

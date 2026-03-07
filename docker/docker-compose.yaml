@@ -14,6 +14,8 @@ services:
       - ALERT_WORKER_THREADS=4
       - ALERT_DET_DEVICE=0
       - ALERT_SEG_DEVICE=cuda:0
+      - ALERT_IMAGE_RETENTION_DAYS=30
+      - ALERT_CLEANUP_SCAN_INTERVAL_SECONDS=3600
     volumes:
       # 运行目录挂载：日志、上传图、结果图、模型
       - ../runtime:/root/.ai_alerting
