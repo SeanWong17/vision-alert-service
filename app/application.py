@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.alerting import get_runtime
+from app.common.errors import AlertingError
 from app.http import router
 from app.common.logging import logger
 
@@ -60,6 +61,16 @@ def create_app() -> FastAPI:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content=jsonable_encoder({"message": exc.errors(), "status": False}),
+        )
+
+    @app.exception_handler(AlertingError)
+    async def alerting_exception_handler(request: Request, exc: AlertingError):
+        """处理告警领域异常，统一映射为业务错误响应。"""
+
+        logger.error("AlertingError %s %s: %s", request.method, request.url, exc.message)
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content=jsonable_encoder({"code": exc.code, "message": exc.message, "status": False}),
         )
 
     @app.exception_handler(Exception)

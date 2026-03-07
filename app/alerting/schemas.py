@@ -14,6 +14,7 @@ class DetectionBox(BaseModel):
     coordinate: List[int] = Field(default_factory=list)
     score: float = 0.0
     tagName: str = ""
+    alarmTag: str = ""
     overlapWater: float = 0.0
     distanceToWater: float = 0.0
 

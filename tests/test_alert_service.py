@@ -124,6 +124,41 @@ class AlertServiceTest(unittest.TestCase):
         rows, _ = self.store.fetch_results("S2")
         self.assertEqual(rows, [])
 
+    def test_submit_async_writes_file_in_chunks(self):
+        """上传文件应按固定分块读取，避免一次性读入内存。"""
+
+        class _ChunkReadable:
+            def __init__(self, data: bytes):
+                self._data = data
+                self._offset = 0
+                self.read_sizes = []
+
+            def read(self, size: int = -1):
+                self.read_sizes.append(size)
+                if size is None or size < 0:
+                    raise AssertionError("unexpected unbounded read")
+                start = self._offset
+                end = min(len(self._data), self._offset + size)
+                self._offset = end
+                return self._data[start:end]
+
+        payload = b"x" * (2 * 1024 * 1024 + 123)
+        stream = _ChunkReadable(payload)
+        upload = self.DummyUpload("cam_3.jpg", b"")
+        upload.file = stream
+
+        result = self.service.submit_async(
+            upload,
+            {"filename": "cam_3.jpg", "sessionId": "S3"},
+            [{"id": 1, "params": {"limit": 1}}],
+        )
+        self.assertEqual(result["code"], 0)
+
+        saved_path = os.path.join(self.service.settings.upload_root, "cam", "cam_3.jpg")
+        self.assertTrue(os.path.exists(saved_path))
+        self.assertEqual(os.path.getsize(saved_path), len(payload))
+        self.assertTrue(all(size == 1024 * 1024 for size in stream.read_sizes))
+
 
 if __name__ == "__main__":
     unittest.main()

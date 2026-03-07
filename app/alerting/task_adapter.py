@@ -26,17 +26,30 @@ def _to_object(value: Any) -> Dict[str, Any]:
     raise AlertingError(message="payload must be a dict or json string")
 
 
+def _normalize_coordinate(raw_coordinate: Any, roi_default: List[int]) -> List[int]:
+    """归一化 ROI 坐标顺序；哨兵值使用 [-1,-1,-1,-1]。"""
+
+    if not isinstance(raw_coordinate, list) or len(raw_coordinate) < 4:
+        return list(roi_default)
+
+    try:
+        x1, y1, x2, y2 = [int(v) for v in raw_coordinate[:4]]
+    except Exception:
+        return list(roi_default)
+
+    if [x1, y1, x2, y2] == [-1, -1, -1, -1]:
+        return [-1, -1, -1, -1]
+
+    return [min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)]
+
+
 def _normalize_roi(raw_roi: Any, roi_default: List[int]) -> RoiRule:
     """将单个 ROI 规则归一化为标准结构。"""
 
     if not isinstance(raw_roi, dict):
         raise AlertingError(message="roi item must be an object")
 
-    coordinate = raw_roi.get("coordinate", roi_default)
-    if not isinstance(coordinate, list) or len(coordinate) < 4:
-        coordinate = list(roi_default)
-    else:
-        coordinate = [int(v) for v in coordinate[:4]]
+    coordinate = _normalize_coordinate(raw_roi.get("coordinate", roi_default), roi_default)
 
     classes = raw_roi.get("classes", [])
     if not isinstance(classes, list):

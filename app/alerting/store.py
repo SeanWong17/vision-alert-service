@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 from collections import defaultdict, deque
 from typing import Dict, List, Optional, Tuple
@@ -25,6 +26,7 @@ class AlertStore:
 
         self.settings = settings
         self._lock = threading.Lock()
+        self._consumer_name = os.getenv("ALERT_RESULT_CONSUMER", "api")
 
         # 内存回退结构：仅适合单进程开发联调。
         self._queue: deque[str] = deque()
@@ -47,6 +49,30 @@ class AlertStore:
         """生成 result 哈希键。"""
 
         return self.settings.result_key(session_id)
+
+    def _result_stream_key(self, session_id: str) -> str:
+        """生成 result stream 键。"""
+
+        return self.settings.result_stream_key(session_id)
+
+    def _result_ack_key(self, session_id: str) -> str:
+        """生成 result ack 映射键。"""
+
+        return self.settings.result_ack_key(session_id)
+
+    def _result_group(self, session_id: str) -> str:
+        """生成 result stream 消费组。"""
+
+        return self.settings.result_group(session_id)
+
+    def _ensure_result_group(self, stream_key: str, group_name: str) -> None:
+        """确保结果 stream 的消费组存在。"""
+
+        try:
+            self.redis.xgroup_create(stream_key, group_name, id="0", mkstream=True)
+        except Exception as exc:  # redis.exceptions.ResponseError: BUSYGROUP
+            if "BUSYGROUP" not in str(exc):
+                raise
 
     def enqueue(self, task: QueueTask) -> None:
         """写入 pending 与队列。"""
@@ -97,7 +123,7 @@ class AlertStore:
 
         payload = result.json(ensure_ascii=False)
         if self.redis:
-            self.redis.hset(self._result_key(session_id), image_id, payload)
+            self.redis.xadd(self._result_stream_key(session_id), {"imageId": image_id, "payload": payload})
             self.redis.hdel(self._pending_key(session_id), image_id)
             return
 
@@ -109,15 +135,50 @@ class AlertStore:
         """批量拉取结果并从存储中移除已拉取项。"""
 
         if self.redis:
-            key = self._result_key(session_id)
-            total = int(self.redis.hlen(key))
-            has_more = total > limit
+            stream_key = self._result_stream_key(session_id)
+            group_name = self._result_group(session_id)
+            ack_key = self._result_ack_key(session_id)
+            safe_limit = max(1, int(limit))
+            self._ensure_result_group(stream_key, group_name)
             rows: List[dict] = []
-            for index, (image_id, payload) in enumerate(self.redis.hgetall(key).items()):
-                rows.append(json.loads(payload))
-                self.redis.hdel(key, image_id)
-                if index + 1 >= limit:
-                    break
+
+            def _consume(resp_items) -> None:
+                for _, entries in resp_items or []:
+                    for entry_id, fields in entries:
+                        payload = fields.get("payload")
+                        image_id = fields.get("imageId")
+                        if not payload:
+                            continue
+                        rows.append(json.loads(payload))
+                        if image_id:
+                            self.redis.hset(ack_key, image_id, entry_id)
+
+            # 先拉取当前 consumer 未确认的 pending，避免结果在 PEL 中“看不见”。
+            pending_resp = self.redis.xreadgroup(
+                groupname=group_name,
+                consumername=self._consumer_name,
+                streams={stream_key: "0"},
+                count=safe_limit,
+            )
+            _consume(pending_resp)
+
+            remaining = safe_limit - len(rows)
+            if remaining > 0:
+                new_resp = self.redis.xreadgroup(
+                    groupname=group_name,
+                    consumername=self._consumer_name,
+                    streams={stream_key: ">"},
+                    count=remaining,
+                )
+                _consume(new_resp)
+
+            try:
+                pending_info = self.redis.xpending(stream_key, group_name)
+                pending_count = int(pending_info.get("pending", 0))
+            except Exception:
+                pending_count = 0
+
+            has_more = pending_count > 0 or len(rows) >= safe_limit
             return rows, has_more
 
         with self._lock:
@@ -134,9 +195,20 @@ class AlertStore:
         """确认结果并删除对应记录。"""
 
         if self.redis:
-            key = self._result_key(session_id)
-            for image_id in image_ids:
-                self.redis.hdel(key, image_id)
+            if not image_ids:
+                return
+
+            stream_key = self._result_stream_key(session_id)
+            group_name = self._result_group(session_id)
+            ack_key = self._result_ack_key(session_id)
+            entry_ids = self.redis.hmget(ack_key, image_ids)
+            valid_entry_ids = [entry_id for entry_id in entry_ids if entry_id]
+
+            if valid_entry_ids:
+                self.redis.xack(stream_key, group_name, *valid_entry_ids)
+                self.redis.xdel(stream_key, *valid_entry_ids)
+
+            self.redis.hdel(ack_key, *image_ids)
             return
 
         with self._lock:

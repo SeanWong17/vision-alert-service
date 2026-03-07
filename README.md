@@ -23,7 +23,8 @@ app/
   http/        # 路由层
   application.py
   main.py
-tests/         # 单元测试、集成测试、API 烟雾脚本
+tests/         # 单元测试、集成测试
+scripts/       # 手动脚本（如 API 烟雾测试）
 docs/          # 文档
 docker/        # Dockerfile 与 compose
 runtime/       # 本地运行目录骨架

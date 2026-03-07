@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from threading import Lock
-from typing import Any, Dict, List, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
 import cv2
 import numpy as np
@@ -13,8 +13,9 @@ import numpy as np
 from app.alerting.config import AlertSettings
 from app.alerting.schemas import AlarmTask, DetectionBox, RoiRule, TaskResult
 from app.common.logging import logger
-from app.adapters.vision.detector import YoloDetector
-from app.adapters.vision.segmentor import MmsegSegmentor
+if TYPE_CHECKING:
+    from app.adapters.vision.detector import YoloDetector
+    from app.adapters.vision.segmentor import MmsegSegmentor
 
 
 @dataclass
@@ -59,6 +60,10 @@ class AlertPipeline:
         with self._load_lock:
             if self._detector and self._segmentor:
                 return
+
+            # 推理依赖按需加载，避免非推理路径导入重依赖。
+            from app.adapters.vision.detector import YoloDetector
+            from app.adapters.vision.segmentor import MmsegSegmentor
 
             det_model_path, seg_config_path, seg_model_path = self._model_paths()
             for path in [det_model_path, seg_config_path, seg_model_path]:
@@ -117,6 +122,22 @@ class AlertPipeline:
 
         return cv2.distanceTransform((mask == 0).astype(np.uint8), cv2.DIST_L2, 3)
 
+    @staticmethod
+    def _person_like(label: str) -> bool:
+        """判断类别是否属于人员相关目标。"""
+
+        return (label or "").lower() in {"person", "adult", "teenager", "swim", "rodster"}
+
+    def _derive_alarm_tag(self, tag_name: str, overlap_ratio: float, distance: float) -> str:
+        """根据后处理规则生成告警标签。"""
+
+        if self._person_like(tag_name):
+            if overlap_ratio >= self.settings.in_water_overlap_ratio:
+                return "enter_water"
+            if distance <= self.settings.near_water_distance_px:
+                return "near_water"
+        return tag_name
+
     def _to_detection_boxes(self, raw_det: List[List[Any]], water_mask: np.ndarray) -> List[DetectionBox]:
         """将原始检测结果映射为带水面关系特征的检测框。"""
 
@@ -141,11 +162,13 @@ class AlertPipeline:
             center_y = (y1 + y2) // 2
             distance = float(dist_map[min(center_y, height - 1), min(center_x, width - 1)])
 
+            tag_name = str(label)
             boxes.append(
                 DetectionBox(
                     coordinate=[x1, y1, x2, y2],
                     score=float(score),
-                    tagName=str(label),
+                    tagName=tag_name,
+                    alarmTag=self._derive_alarm_tag(tag_name, overlap_ratio, distance),
                     overlapWater=round(overlap_ratio, 4),
                     distanceToWater=round(distance, 2),
                 )
@@ -157,6 +180,25 @@ class AlertPipeline:
         """判断是否为全图 ROI 哨兵值。"""
 
         return len(roi) >= 4 and roi[0] == -1 and roi[1] == -1 and roi[2] == -1 and roi[3] == -1
+
+    @staticmethod
+    def _normalize_roi_to_image(roi: List[int], image_width: int, image_height: int) -> List[int]:
+        """将 ROI 归一化到图像边界范围内。"""
+
+        if len(roi) < 4:
+            return [0, 0, image_width, image_height]
+
+        if roi == [-1, -1, -1, -1]:
+            return [0, 0, image_width, image_height]
+
+        x1, y1, x2, y2 = roi[:4]
+        x1, x2 = min(x1, x2), max(x1, x2)
+        y1, y2 = min(y1, y2), max(y1, y2)
+        x1 = max(0, min(image_width, x1))
+        x2 = max(0, min(image_width, x2))
+        y1 = max(0, min(image_height, y1))
+        y2 = max(0, min(image_height, y2))
+        return [x1, y1, x2, y2]
 
     @staticmethod
     def _bbox_intersects_roi(bbox: List[int], roi: List[int]) -> bool:
@@ -177,16 +219,14 @@ class AlertPipeline:
     ) -> List[Dict[str, Any]]:
         """按 ROI、类别、阈值筛选告警目标。"""
 
-        roi = list(roi_rule.coordinate)
-        if self._is_full_image_roi(roi):
-            roi = [0, 0, image_width, image_height]
+        roi = self._normalize_roi_to_image(list(roi_rule.coordinate), image_width, image_height)
 
         class_set = {c.lower() for c in roi_rule.classes if c}
         targets: List[Dict[str, Any]] = []
         for det in detections:
             if det.score < roi_rule.confThreshold:
                 continue
-            if class_set and det.tagName.lower() not in class_set:
+            if class_set and det.alarmTag.lower() not in class_set and det.tagName.lower() not in class_set:
                 continue
             if not self._bbox_intersects_roi(det.coordinate, roi):
                 continue
@@ -214,7 +254,7 @@ class AlertPipeline:
             cv2.rectangle(canvas, (x1, y1), (x2, y2), (0, 255, 0), 2)
             cv2.putText(
                 canvas,
-                f"{det.tagName}:{det.score:.2f}",
+                f"{det.alarmTag}:{det.score:.2f}",
                 (x1, max(16, y1 - 8)),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.5,
@@ -276,17 +316,17 @@ class AlertPipeline:
                 roi_results.append(
                     {
                         "roiId": roi_rule.roiId,
-                        "coordinate": roi_rule.coordinate,
+                        "coordinate": self._normalize_roi_to_image(list(roi_rule.coordinate), outcome.image_width, outcome.image_height),
                         "classes": roi_rule.classes,
                         "confThreshold": roi_rule.confThreshold,
                         "targetCount": len(targets),
-                        "alertClasses": sorted(list({t["tagName"] for t in targets})),
+                        "alertClasses": sorted(list({t["alarmTag"] for t in targets})),
                         "targets": targets,
                     }
                 )
 
             task_limit = int(task.params.get("limit", self.settings.default_limit))
-            reserved = "1" if total_targets > task_limit else "0"
+            reserved = "1" if total_targets >= task_limit else "0"
             results.append(
                 TaskResult(
                     id=task.id,

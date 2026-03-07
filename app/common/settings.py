@@ -137,6 +137,9 @@ class AlertSettings:
     queue_name: str = "alert:queue:pending"
     pending_key_prefix: str = "alert:pending"
     result_key_prefix: str = "alert:result"
+    result_stream_prefix: str = "alert:result_stream"
+    result_ack_prefix: str = "alert:result_ack"
+    result_group_prefix: str = "alert:result_group"
     default_limit: int = 1
     roi_default: tuple[int, int, int, int] = (-1, -1, -1, -1)
     near_water_distance_px: int = 24
@@ -151,6 +154,18 @@ class AlertSettings:
     def result_key(self, session_id: str) -> str:
         """生成 result 哈希 key。"""
         return f"{self.result_key_prefix}:{session_id}"
+
+    def result_stream_key(self, session_id: str) -> str:
+        """生成 result stream key。"""
+        return f"{self.result_stream_prefix}:{session_id}"
+
+    def result_ack_key(self, session_id: str) -> str:
+        """生成 result ack 映射 key（imageId -> stream entry id）。"""
+        return f"{self.result_ack_prefix}:{session_id}"
+
+    def result_group(self, session_id: str) -> str:
+        """生成 result stream consumer group 名称。"""
+        return f"{self.result_group_prefix}:{session_id}"
 
 
 def _resolve_latest_model_root(base_dir: str) -> str:

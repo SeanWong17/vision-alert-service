@@ -85,6 +85,47 @@ class TaskAdapterTest(unittest.TestCase):
         self.assertEqual(rois[0]["classes"], ["person", "car"])
         self.assertEqual(rois[0]["confThreshold"], 0.7)
 
+    def test_roi_coordinate_is_order_normalized(self):
+        """反向坐标应在适配层归一化为左上到右下。"""
+
+        from app.alerting.config import AlertSettings
+        from app.alerting.task_adapter import normalize_tasks
+
+        settings = AlertSettings(upload_root="/tmp/u", result_root="/tmp/r", model_root="/tmp/m")
+        tasks = normalize_tasks(
+            {"tasks": [{"id": 9, "params": {"rois": [{"coordinate": [200, 120, 100, 20]}]}}]},
+            settings,
+        )
+        roi = tasks[0].params["rois"][0]
+        self.assertEqual(roi["coordinate"], [100, 20, 200, 120])
+
+    def test_roi_threshold_is_clamped_to_0_1(self):
+        """阈值应被限制在 [0,1]。"""
+
+        from app.alerting.config import AlertSettings
+        from app.alerting.task_adapter import normalize_tasks
+
+        settings = AlertSettings(upload_root="/tmp/u", result_root="/tmp/r", model_root="/tmp/m")
+        tasks = normalize_tasks(
+            {
+                "tasks": [
+                    {
+                        "id": 10,
+                        "params": {
+                            "rois": [
+                                {"roiId": "low", "coordinate": [1, 1, 2, 2], "confThreshold": -0.1},
+                                {"roiId": "high", "coordinate": [1, 1, 2, 2], "confThreshold": 1.5},
+                            ]
+                        },
+                    }
+                ]
+            },
+            settings,
+        )
+        rois = tasks[0].params["rois"]
+        self.assertEqual(rois[0]["confThreshold"], 0.0)
+        self.assertEqual(rois[1]["confThreshold"], 1.0)
+
 
 if __name__ == "__main__":
     unittest.main()

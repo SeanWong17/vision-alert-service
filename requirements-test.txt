@@ -1,0 +1,8 @@
+# Test/runtime dependencies for CI (without heavy inference stack)
+fastapi
+python-multipart
+pydantic<2
+numpy
+opencv-python-headless
+redis
+requests

@@ -73,6 +73,82 @@ class AlertStoreTest(unittest.TestCase):
         rows2, _ = self.store.fetch_results("s1", limit=10)
         self.assertEqual(rows2, [])
 
+    def test_fetch_and_confirm_results_use_stream_ack(self):
+        """Redis 分支应走 stream 消费并在确认时 ack+del。"""
+
+        import json
+
+        class _FakeRedis:
+            def __init__(self):
+                self.xgroup_create_called = 0
+                self.hset_calls = []
+                self.hmget_calls = []
+                self.xack_calls = []
+                self.xdel_calls = []
+                self.hdel_calls = []
+                self.xreadgroup_calls = []
+
+            def xgroup_create(self, _stream, _group, id="0", mkstream=True):
+                _ = (id, mkstream)
+                self.xgroup_create_called += 1
+
+            def xreadgroup(self, groupname, consumername, streams, count):
+                self.xreadgroup_calls.append((groupname, consumername, dict(streams), count))
+                stream_key = list(streams.keys())[0]
+                stream_id = streams[stream_key]
+                if stream_id == "0":
+                    return []
+                return [
+                    (
+                        stream_key,
+                        [
+                            ("1710000000000-0", {"imageId": "img-1", "payload": json.dumps({"imageId": "img-1"})}),
+                            ("1710000000001-0", {"imageId": "img-2", "payload": json.dumps({"imageId": "img-2"})}),
+                        ],
+                    )
+                ]
+
+            def xpending(self, _stream, _group):
+                return {"pending": 1}
+
+            def hset(self, key, field, value):
+                self.hset_calls.append((key, field, value))
+                return 1
+
+            def hmget(self, key, fields):
+                self.hmget_calls.append((key, list(fields)))
+                return ["1710000000000-0", "1710000000001-0"]
+
+            def xack(self, key, group, *ids):
+                self.xack_calls.append((key, group, list(ids)))
+                return len(ids)
+
+            def xdel(self, key, *ids):
+                self.xdel_calls.append((key, list(ids)))
+                return len(ids)
+
+            def hdel(self, key, *fields):
+                self.hdel_calls.append((key, list(fields)))
+                return len(fields)
+
+        fake_redis = _FakeRedis()
+        self.store.redis = fake_redis
+
+        rows, has_more = self.store.fetch_results("s-redis", limit=2)
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(has_more)
+        self.assertEqual(fake_redis.xgroup_create_called, 1)
+        self.assertEqual(len(fake_redis.xreadgroup_calls), 2)
+        self.assertEqual(list(fake_redis.xreadgroup_calls[0][2].values())[0], "0")
+        self.assertEqual(list(fake_redis.xreadgroup_calls[1][2].values())[0], ">")
+        self.assertEqual(len(fake_redis.hset_calls), 2)
+
+        self.store.confirm_results("s-redis", ["img-1", "img-2"])
+        self.assertEqual(len(fake_redis.hmget_calls), 1)
+        self.assertEqual(len(fake_redis.xack_calls), 1)
+        self.assertEqual(len(fake_redis.xdel_calls), 1)
+        self.assertTrue(any(len(call[1]) == 2 for call in fake_redis.hdel_calls))
+
 
 if __name__ == "__main__":
     unittest.main()

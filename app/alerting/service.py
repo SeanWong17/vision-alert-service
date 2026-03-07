@@ -45,7 +45,11 @@ class AlertService:
 
         file_path = os.path.join(directory, file_name)
         with open(file_path, "wb") as fh:
-            fh.write(file_obj.file.read())
+            while True:
+                chunk = file_obj.file.read(1024 * 1024)
+                if not chunk:
+                    break
+                fh.write(chunk)
         return file_path
 
     def _save_result_image(self, file_name: str, image, has_alarm: bool) -> str:
