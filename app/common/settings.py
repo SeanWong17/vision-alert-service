@@ -140,6 +140,9 @@ class AlertSettings:
     result_stream_prefix: str = "alert:result_stream"
     result_ack_prefix: str = "alert:result_ack"
     result_group_prefix: str = "alert:result_group"
+    result_claim_idle_ms: int = 60000
+    upload_max_bytes: int = 20 * 1024 * 1024
+    allowed_image_types: tuple[str, ...] = ("image/jpg", "image/jpeg", "image/png")
     default_limit: int = 1
     roi_default: tuple[int, int, int, int] = (-1, -1, -1, -1)
     near_water_distance_px: int = 24
@@ -188,4 +191,6 @@ def load_alert_settings() -> AlertSettings:
         detector_device=os.getenv("ALERT_DET_DEVICE", "0"),
         segmentor_device=os.getenv("ALERT_SEG_DEVICE", "cuda:0"),
         worker_threads=max(1, int(os.getenv("ALERT_WORKER_THREADS", "4"))),
+        result_claim_idle_ms=max(1000, int(os.getenv("ALERT_RESULT_CLAIM_IDLE_MS", "60000"))),
+        upload_max_bytes=max(1024 * 1024, int(os.getenv("ALERT_UPLOAD_MAX_BYTES", str(20 * 1024 * 1024)))),
     )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List
@@ -36,6 +37,25 @@ class AlertService:
 
         return file_name.split("_")[0] if "_" in file_name else "other"
 
+    @staticmethod
+    def _sanitize_filename(file_name: str) -> str:
+        """净化文件名，阻断路径穿越和非法字符。"""
+
+        base = os.path.basename(str(file_name or "").strip())
+        if not base or base in {".", ".."}:
+            raise AlertingError(message="invalid filename")
+
+        safe = re.sub(r"[^A-Za-z0-9._-]", "_", base)
+        if not safe or safe in {".", ".."}:
+            raise AlertingError(message="invalid filename")
+        return safe
+
+    def _validate_upload_type(self, upload: UploadFile) -> None:
+        """校验上传文件 MIME 类型。"""
+
+        if upload.content_type not in self.settings.allowed_image_types:
+            raise ApiError(status_code=HTTP_422_UNPROCESSABLE_ENTITY, message="The file is not an image")
+
     def _save_upload_file(self, file_name: str, file_obj: UploadFile) -> str:
         """保存上传原图并返回本地路径。"""
 
@@ -44,12 +64,21 @@ class AlertService:
         os.makedirs(directory, exist_ok=True)
 
         file_path = os.path.join(directory, file_name)
-        with open(file_path, "wb") as fh:
-            while True:
-                chunk = file_obj.file.read(1024 * 1024)
-                if not chunk:
-                    break
-                fh.write(chunk)
+        total = 0
+        try:
+            with open(file_path, "wb") as fh:
+                while True:
+                    chunk = file_obj.file.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > self.settings.upload_max_bytes:
+                        raise AlertingError(message="file too large")
+                    fh.write(chunk)
+        except Exception:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            raise
         return file_path
 
     def _save_result_image(self, file_name: str, image, has_alarm: bool) -> str:
@@ -68,16 +97,18 @@ class AlertService:
     def submit_async(self, upload: UploadFile, file_upload_raw: Any, tasks_raw: Any) -> Dict[str, Any]:
         """提交异步任务：接收入参、保存原图、写入队列。"""
 
+        self._validate_upload_type(upload)
         envelope = parse_upload_envelope(file_upload_raw)
+        safe_filename = self._sanitize_filename(envelope.filename)
         tasks = normalize_tasks(tasks_raw, self.settings)
 
         image_id = envelope.fileuuid or uuid.uuid4().hex
-        file_path = self._save_upload_file(envelope.filename, upload)
+        file_path = self._save_upload_file(safe_filename, upload)
         self.store.enqueue(
             QueueTask(
                 image_id=image_id,
                 session_id=envelope.sessionId,
-                file_name=envelope.filename,
+                file_name=safe_filename,
                 file_path=file_path,
                 tasks=tasks,
             )
@@ -89,16 +120,16 @@ class AlertService:
     def analyze_sync(self, image: UploadFile, file_name: str, tasks_raw: Any) -> List[Dict[str, Any]]:
         """同步推理：上传即分析并返回任务结果。"""
 
-        if image.content_type not in {"image/jpg", "image/jpeg", "image/png"}:
-            raise ApiError(status_code=HTTP_422_UNPROCESSABLE_ENTITY, message="The file is not an image")
+        self._validate_upload_type(image)
+        safe_filename = self._sanitize_filename(file_name)
 
         tasks = normalize_tasks(tasks_raw, self.settings)
-        file_path = self._save_upload_file(file_name, image)
+        file_path = self._save_upload_file(safe_filename, image)
         outcome = self.pipeline.run(file_path, tasks)
         task_results = self.pipeline.build_task_results(tasks, outcome)
         has_alarm = any(item.reserved == "1" for item in task_results)
 
-        self._save_result_image(file_name, outcome.rendered_image, has_alarm=has_alarm)
+        self._save_result_image(safe_filename, outcome.rendered_image, has_alarm=has_alarm)
         return [item.dict() for item in task_results]
 
     def process_async_task(self, task: QueueTask) -> None:

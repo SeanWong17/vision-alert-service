@@ -159,6 +159,52 @@ class AlertServiceTest(unittest.TestCase):
         self.assertEqual(os.path.getsize(saved_path), len(payload))
         self.assertTrue(all(size == 1024 * 1024 for size in stream.read_sizes))
 
+    def test_submit_async_sanitizes_filename(self):
+        """异步上传应净化文件名，避免路径穿越。"""
+
+        image = self.DummyUpload("origin.jpg", b"123")
+        result = self.service.submit_async(
+            image,
+            {"filename": "../unsafe name?.jpg", "sessionId": "S4"},
+            [{"id": 1, "params": {"limit": 1}}],
+        )
+        self.assertEqual(result["code"], 0)
+        task = self.store.pop()
+        self.assertIsNotNone(task)
+        self.assertEqual(task.file_name, "unsafe_name_.jpg")
+        self.assertTrue(task.file_path.endswith("/unsafe_name_.jpg"))
+
+    def test_submit_async_rejects_non_image(self):
+        """异步上传应拒绝非图片 MIME 类型。"""
+
+        from app.common.errors import ApiError
+
+        image = self.DummyUpload("x.txt", b"not-image", content_type="text/plain")
+        with self.assertRaises(ApiError):
+            self.service.submit_async(
+                image,
+                {"filename": "x.txt", "sessionId": "S5"},
+                [{"id": 1, "params": {"limit": 1}}],
+            )
+
+    def test_submit_async_rejects_oversized_file(self):
+        """异步上传超限时应抛错并删除落盘文件。"""
+
+        from app.common.errors import AlertingError
+
+        self.service.settings.upload_max_bytes = 16
+        image = self.DummyUpload("cam_oversize.jpg", b"x" * 64, content_type="image/jpeg")
+
+        with self.assertRaises(AlertingError):
+            self.service.submit_async(
+                image,
+                {"filename": "cam_oversize.jpg", "sessionId": "S6"},
+                [{"id": 1, "params": {"limit": 1}}],
+            )
+
+        saved_path = os.path.join(self.service.settings.upload_root, "cam", "cam_oversize.jpg")
+        self.assertFalse(os.path.exists(saved_path))
+
 
 if __name__ == "__main__":
     unittest.main()

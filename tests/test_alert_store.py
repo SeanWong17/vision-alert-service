@@ -87,6 +87,7 @@ class AlertStoreTest(unittest.TestCase):
                 self.xdel_calls = []
                 self.hdel_calls = []
                 self.xreadgroup_calls = []
+                self.xautoclaim_calls = []
 
             def xgroup_create(self, _stream, _group, id="0", mkstream=True):
                 _ = (id, mkstream)
@@ -98,15 +99,29 @@ class AlertStoreTest(unittest.TestCase):
                 stream_id = streams[stream_key]
                 if stream_id == "0":
                     return []
+                if stream_id == ">":
+                    return [
+                        (
+                            stream_key,
+                            [("1710000000001-0", {"imageId": "img-2", "payload": json.dumps({"imageId": "img-2"})})],
+                        )
+                    ]
                 return [
                     (
                         stream_key,
                         [
-                            ("1710000000000-0", {"imageId": "img-1", "payload": json.dumps({"imageId": "img-1"})}),
-                            ("1710000000001-0", {"imageId": "img-2", "payload": json.dumps({"imageId": "img-2"})}),
+                            ("1710000000002-0", {"imageId": "img-x", "payload": json.dumps({"imageId": "img-x"})}),
                         ],
                     )
                 ]
+
+            def xautoclaim(self, name, groupname, consumername, min_idle_time, start_id, count):
+                self.xautoclaim_calls.append((name, groupname, consumername, min_idle_time, start_id, count))
+                return (
+                    "1710000000001-0",
+                    [("1710000000000-0", {"imageId": "img-1", "payload": json.dumps({"imageId": "img-1"})})],
+                    [],
+                )
 
             def xpending(self, _stream, _group):
                 return {"pending": 1}
@@ -141,6 +156,7 @@ class AlertStoreTest(unittest.TestCase):
         self.assertEqual(len(fake_redis.xreadgroup_calls), 2)
         self.assertEqual(list(fake_redis.xreadgroup_calls[0][2].values())[0], "0")
         self.assertEqual(list(fake_redis.xreadgroup_calls[1][2].values())[0], ">")
+        self.assertEqual(len(fake_redis.xautoclaim_calls), 1)
         self.assertEqual(len(fake_redis.hset_calls), 2)
 
         self.store.confirm_results("s-redis", ["img-1", "img-2"])

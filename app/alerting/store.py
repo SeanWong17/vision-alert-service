@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import threading
 from collections import defaultdict, deque
 from typing import Dict, List, Optional, Tuple
@@ -26,7 +27,7 @@ class AlertStore:
 
         self.settings = settings
         self._lock = threading.Lock()
-        self._consumer_name = os.getenv("ALERT_RESULT_CONSUMER", "api")
+        self._consumer_name = os.getenv("ALERT_RESULT_CONSUMER", f"{socket.gethostname()}-{os.getpid()}")
 
         # 内存回退结构：仅适合单进程开发联调。
         self._queue: deque[str] = deque()
@@ -161,6 +162,29 @@ class AlertStore:
                 count=safe_limit,
             )
             _consume(pending_resp)
+
+            remaining = safe_limit - len(rows)
+            if remaining > 0:
+                # 回收其他 consumer 超时未确认消息，提升多实例和重启场景可恢复性。
+                try:
+                    claim_resp = self.redis.xautoclaim(
+                        name=stream_key,
+                        groupname=group_name,
+                        consumername=self._consumer_name,
+                        min_idle_time=self.settings.result_claim_idle_ms,
+                        start_id="0-0",
+                        count=remaining,
+                    )
+                except Exception:
+                    claim_resp = None
+
+                claimed_entries = []
+                if claim_resp:
+                    # redis-py 兼容：返回 (next_start, entries) 或 (next_start, entries, deleted_ids)
+                    if isinstance(claim_resp, (list, tuple)) and len(claim_resp) >= 2:
+                        claimed_entries = claim_resp[1] or []
+                if claimed_entries:
+                    _consume([(stream_key, claimed_entries)])
 
             remaining = safe_limit - len(rows)
             if remaining > 0:
