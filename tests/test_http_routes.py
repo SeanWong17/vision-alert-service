@@ -1,17 +1,11 @@
 """HTTP 路由异常语义测试。"""
 
-import sys
 import unittest
 from unittest.mock import patch
 
 
 def _runtime_ready() -> bool:
     """检测运行依赖是否齐全。"""
-
-    # Python 3.12 + 当前 fastapi/starlette 组合在本地 testclient 场景存在已知卡顿，
-    # 该项目 CI 目标版本为 3.10/3.11，3.12 下先跳过避免误报。
-    if sys.version_info >= (3, 12):
-        return False
 
     try:
         import fastapi  # noqa: F401
@@ -54,11 +48,14 @@ class UploadRouteErrorTest(unittest.TestCase):
                 return 0
 
         runtime = {"service": service, "worker": _Worker(), "store": _Store()}
-        patcher = patch("app.application.get_runtime", return_value=runtime)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        patcher_app = patch("app.application.get_runtime", return_value=runtime)
+        patcher_routes = patch("app.http.routes.get_runtime", return_value=runtime)
+        patcher_app.start()
+        patcher_routes.start()
+        self.addCleanup(patcher_app.stop)
+        self.addCleanup(patcher_routes.stop)
         app = create_app()
-        return TestClient(app)
+        return TestClient(app, raise_server_exceptions=False)
 
     def test_upload_alerting_error_returns_400(self):
         """业务异常应映射为 400。"""
