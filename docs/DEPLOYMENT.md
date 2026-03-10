@@ -31,8 +31,23 @@ cp runtime/config.example.json runtime/config.json
 - `mmseg_config.py`
 - `seg_model.pt`
 
+快速下载轻量模型（人检 + 水面分割）：
+```bash
+python3 scripts/install_light_models.py --model-root runtime/models --packs nano-v11-b0
+```
+
+如使用 ADE20K 预训练分割模型，请在 `runtime/config.json` 配置：
+```json
+{
+  "alert": {
+    "segmentor_water_class_ids": [21]
+  }
+}
+```
+
 ## 3. Docker
 Docker 文件在 `docker/` 目录（compose 文件名为 `docker-compose.yaml`）。
+容器测试细化步骤见：`docs/CONTAINER_TEST.md`。
 
 启动：
 ```bash
@@ -44,6 +59,8 @@ docker compose up -d --build
 - 容器 `/root/.ai_alerting` -> 宿主 `runtime`
 
 常用环境变量（可在 `docker-compose.yaml` 中配置）：
+- `ALERT_DET_DEVICE`：检测设备，容器内测试建议 `cpu`
+- `ALERT_SEG_DEVICE`：分割设备，容器内测试建议 `cpu`
 - `ALERT_IMAGE_RETENTION_DAYS`：上传图与结果图保留天数，默认 `30`
 - `ALERT_CLEANUP_SCAN_INTERVAL_SECONDS`：清理扫描周期（秒），默认 `3600`
 - `ALERT_UPLOAD_MAX_BYTES`：单张上传最大字节数，默认 `20971520`（20MB）

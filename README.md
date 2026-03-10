@@ -7,6 +7,7 @@
 python3 -m pip install -r requirements.txt
 mkdir -p runtime/log runtime/images/upload runtime/images/result runtime/models/000001 runtime/license
 cp runtime/config.example.json runtime/config.json
+python3 scripts/install_light_models.py --model-root runtime/models --packs nano-v11-b0
 python3 main.py --host 0.0.0.0 --port 8011
 ```
 
@@ -14,6 +15,7 @@ python3 main.py --host 0.0.0.0 --port 8011
 - 架构与调用链：`docs/CALL_CHAIN.md`
 - API 接口文档：`docs/API.md`
 - 部署与 Docker：`docs/DEPLOYMENT.md`
+- 容器启动与测试：`docs/CONTAINER_TEST.md`
 - 运行与运维基线：`docs/OPERATIONS.md`
 - 代码保护与授权：`docs/PROTECTION.md`
 

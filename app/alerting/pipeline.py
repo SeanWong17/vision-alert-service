@@ -83,6 +83,7 @@ class AlertPipeline:
                 seg_config_path,
                 seg_model_path,
                 device=self.settings.segmentor_device,
+                water_class_ids=self.settings.segmentor_water_class_ids,
             )
             logger.info("models loaded from %s", self.settings.model_root)
 

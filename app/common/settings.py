@@ -81,6 +81,7 @@ class AlertConfig(BaseModel):
     detector_iou: float = 0.45
     detector_device: str = "0"
     segmentor_device: str = "cuda:0"
+    segmentor_water_class_ids: tuple[int, ...] = (1,)
     queue_name: str = "alert:queue:pending"
     pending_key_prefix: str = "alert:pending"
     result_key_prefix: str = "alert:result"
@@ -209,6 +210,7 @@ class AlertSettings:
     detector_iou: float = 0.45
     detector_device: str = "0"
     segmentor_device: str = "cuda:0"
+    segmentor_water_class_ids: tuple[int, ...] = (1,)
     queue_name: str = "alert:queue:pending"
     pending_key_prefix: str = "alert:pending"
     result_key_prefix: str = "alert:result"
@@ -292,6 +294,7 @@ def load_alert_settings() -> AlertSettings:
         detector_iou=float(alert_cfg.detector_iou),
         detector_device=os.getenv("ALERT_DET_DEVICE", alert_cfg.detector_device),
         segmentor_device=os.getenv("ALERT_SEG_DEVICE", alert_cfg.segmentor_device),
+        segmentor_water_class_ids=tuple(int(v) for v in alert_cfg.segmentor_water_class_ids),
         queue_name=alert_cfg.queue_name,
         pending_key_prefix=alert_cfg.pending_key_prefix,
         result_key_prefix=alert_cfg.result_key_prefix,
