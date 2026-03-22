@@ -13,7 +13,7 @@ services:
       - "8011:8011"
     environment:
       - TZ=Asia/Shanghai
-      - ALERT_CONFIG_PATH=/root/.ai_alerting/config.docker.json
+      - ALERT_CONFIG_PATH=/root/.ai_alerting/config.json
       - ALERT_REDIS_HOST=redis
       - ALERT_REDIS_PORT=6379
       - ALERT_WORKER_THREADS=4

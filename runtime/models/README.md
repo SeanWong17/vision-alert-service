@@ -22,7 +22,7 @@ python3 scripts/install_light_models.py --model-root runtime/models --packs nano
 
 说明：
 
-- 天空类别默认使用 ADE20K 的 `sky=2`，请在 `runtime/config.json` 设置：
+- 预训练模型默认使用 ADE20K 数据集，`sky=2` 仅作为开箱即用的演示值；实际部署时应替换为业务所需的类别 ID。请在 `runtime/config.json` 设置：
   - `"alert.segmentor_target_class_ids": [2]`
   - `"alert.segment_postprocess_class_names": ["person"]`
 - 建议本地仅保留一个版本目录，避免切换误用。

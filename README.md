@@ -4,25 +4,13 @@
 
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 
-![AI Alerting demo](docs/assets/portfolio-demo-alert-result.png)
+![AI Alerting demo](docs/assets/demo-alert-result.png)
 
 上图展示了项目的一个典型输出：服务先做目标检测，再结合语义分割掩膜对指定类别做业务后处理，将目标标记为 `enter_segment` 或 `near_segment`，而不是只给出通用检测框。
 
 ## 项目定位
 
-这是一个偏工程落地的计算机视觉后端项目，而不是单纯的模型推理脚本。它强调的是：
-
-- 将检测模型、分割模型、HTTP API、异步队列、结果存储和运维指标整合成一个可运行服务
-- 把“模型输出”进一步转译成业务语义，例如区域进入、临近告警、结果确认和回溯
-- 体现我在 Python 后端、CV 服务封装、Docker 化、测试与可运维性上的一部分能力
-
-下面这些能力面更容易被这套工程化实践直观体现：
-
-- **CV 工程化**：把 YOLO / MMSeg 推理链路转成稳定服务，而不是停留在 notebook
-- **后端架构设计**：分层组织 `adapter / service / pipeline / worker / http`
-- **业务抽象**：从检测框和分割掩膜提炼出 `enter_segment` / `near_segment`
-- **工程质量**：配置管理、异常体系、日志、指标、测试、CI、Docker 构建
-- **运维意识**：健康检查、就绪探针、Prometheus 指标、镜像依赖收敛
+这是一个面向工程落地的计算机视觉后端服务，而非单纯的模型推理脚本。它将检测模型、分割模型、HTTP API、异步队列、结果存储和运维指标整合为一个可部署的服务，并把原始模型输出进一步转译为业务语义（区域进入、临近告警、结果确认与回溯）。
 
 ## 亮点速览
 
@@ -94,11 +82,6 @@ Client
 - 配置项 `segmentor_target_class_ids` 决定关注哪些分割类别
 - 配置项 `segment_postprocess_class_names` 决定哪些检测类别参与业务后处理
 - 根据掩膜重叠率和最短距离，输出 `enter_segment` / `near_segment`
-
-这部分能力主要体现在：
-
-- 不把模型结果生硬返回，而是结合业务规则做领域语义抽象
-- 通过配置而非硬编码控制目标分割类别、处理类别和阈值
 
 ### 2. 服务端工程设计
 
@@ -257,13 +240,6 @@ docker run --rm -v "$(pwd)/runtime:/root/.ai_alerting" ai-alerting:test
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献流程、提交前检查、PR 约定 |
 | [SECURITY.md](SECURITY.md) | 漏洞报告与安全披露流程 |
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 社区协作行为基线 |
-
-## 我希望它体现的能力
-
-- 我不只会“调模型”，也会把模型能力包装成可部署、可观测、可维护的服务
-- 我关注从算法结果到业务结果之间的落地层设计
-- 我会为接口、异常、配置、日志、指标、测试和容器化交付负责
-- 我能把一个偏实验性质的视觉能力整理成相对完整的工程项目
 
 ## 开源协作
 

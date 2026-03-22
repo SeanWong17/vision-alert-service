@@ -75,7 +75,7 @@ python3 scripts/smoke_api.py --host 127.0.0.1 --port 8011 --image /abs/path/to/t
 
 重要说明：
 - `/healthz` 和 `/readyz` 通过，只代表 Web 服务、worker 和 Redis 链路正常，不代表真实模型推理依赖已经闭合。
-- 当前 `Dockerfile` 已改为在镜像构建阶段固化安装兼容的 full `mmcv`。
+- 当前 `Dockerfile` 已在镜像构建阶段固化安装兼容的 full `mmcv`。
 - 当前运行镜像已将 `numpy` 固定为 `<2`，避免 `torch 2.1.x` / `mmcv 2.1.x` 在 NumPy 2.x 下出现 ABI 兼容告警。
 - 如果镜像内仍然出现 `mmcv._ext` 缺失，说明 full `mmcv` 安装阶段失败或被替换成了 `mmcv-lite`。
 
@@ -84,7 +84,7 @@ python3 scripts/smoke_api.py --host 127.0.0.1 --port 8011 --image /abs/path/to/t
 - 容器启动时报 `libGL.so.1`：
   - 说明 OpenCV 运行库不完整；镜像需包含 `libgl1`。
 - 分割结果全空：
-  - 确认 `runtime/config.json` 里 `alert.segmentor_target_class_ids` 为 `[2]`（ADE20K 的 sky 类别 ID）。
+  - 确认 `runtime/config.json` 里 `alert.segmentor_target_class_ids` 包含目标分割类别 ID。预训练模型默认使用 ADE20K 数据集，`[2]` 对应 `sky` 类别，仅作为开箱即用的演示值；实际部署时应替换为业务所需的类别 ID。
 - 真实图片请求报 `No module named 'mmcv._ext'`：
   - 说明当前只有 `mmcv-lite`，或 Docker 构建阶段的 full `mmcv` 安装失败。
   - 优先检查镜像构建日志中的 `python -m mim install "mmcv==..."` 步骤。
