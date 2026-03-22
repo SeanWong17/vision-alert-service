@@ -41,13 +41,11 @@ class AlertPipelinePostprocessTest(unittest.TestCase):
                     coordinate=[1, 1, 5, 5],
                     score=0.5,
                     tagName="person",
-                    alarmTag="near_water",
-                    overlapWater=0.02,
-                    distanceToWater=5.0,
+                    alarmTag="near_segment",
+                    overlapSegment=0.02,
+                    distanceToSegment=5.0,
                 )
             ],
-            water_color={"water_ratio": 0.3},
-            shoreline_points=[[1, 1]],
             rendered_image=None,
             image_width=16,
             image_height=16,
@@ -60,7 +58,7 @@ class AlertPipelinePostprocessTest(unittest.TestCase):
                     {
                         "roiId": "r1",
                         "coordinate": [20, 20, -5, -10],
-                        "classes": ["near_water"],
+                        "classes": ["near_segment"],
                         "confThreshold": 0.5,
                     }
                 ],
@@ -72,15 +70,15 @@ class AlertPipelinePostprocessTest(unittest.TestCase):
         roi = result.detail["roiResults"][0]
         self.assertEqual(roi["coordinate"], [0, 0, 16, 16])
         self.assertEqual(roi["targetCount"], 1)
-        self.assertEqual(roi["alertClasses"], ["near_water"])
+        self.assertEqual(roi["alertClasses"], ["near_segment"])
         self.assertEqual(roi["targets"][0]["tagName"], "person")
-        self.assertEqual(roi["targets"][0]["alarmTag"], "near_water")
+        self.assertEqual(roi["targets"][0]["alarmTag"], "near_segment")
 
     def test_derive_alarm_tag_rules(self):
         """人员类别应按重叠率和距离映射业务标签。"""
 
-        self.assertEqual(self.pipeline._derive_alarm_tag("person", overlap_ratio=0.2, distance=100), "enter_water")
-        self.assertEqual(self.pipeline._derive_alarm_tag("person", overlap_ratio=0.01, distance=5), "near_water")
+        self.assertEqual(self.pipeline._derive_alarm_tag("person", overlap_ratio=0.2, distance=100), "enter_segment")
+        self.assertEqual(self.pipeline._derive_alarm_tag("person", overlap_ratio=0.01, distance=5), "near_segment")
         self.assertEqual(self.pipeline._derive_alarm_tag("car", overlap_ratio=0.2, distance=1), "car")
 
 

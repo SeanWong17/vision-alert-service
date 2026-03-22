@@ -59,13 +59,11 @@ def make_fake_pipeline():
                     DetectionBox(
                         coordinate=[1, 2, 3, 4],
                         score=0.9,
-                        tagName="enter_water",
-                        overlapWater=0.2,
-                        distanceToWater=0.0,
+                        tagName="enter_segment",
+                        overlapSegment=0.2,
+                        distanceToSegment=0.0,
                     )
                 ],
-                water_color={"water_ratio": 0.5},
-                shoreline_points=[[1, 1], [2, 2]],
                 rendered_image=np.zeros((16, 16, 3), dtype=np.uint8),
                 image_width=16,
                 image_height=16,

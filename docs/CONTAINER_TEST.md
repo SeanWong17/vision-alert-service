@@ -14,7 +14,7 @@ python3 scripts/install_light_models.py --model-root runtime/models --packs nano
 默认将安装一套轻量模型到 `runtime/models/000001`：
 
 - 人检：`yolo11n`
-- 水面分割：`segformer_mit-b0_ade20k`
+- 语义分割：`segformer_mit-b0_ade20k`
 
 ## 2. 启动容器（CPU）
 
@@ -56,7 +56,7 @@ python3 scripts/smoke_api.py --host 127.0.0.1 --port 8011 --image /abs/path/to/t
 ## 6. 常见排查
 
 - 分割结果全空：
-  - 确认 `runtime/config.json` 里 `alert.segmentor_water_class_ids` 为 `[21]`（ADE20K water 类）。
+  - 确认 `runtime/config.json` 里 `alert.segmentor_target_class_ids` 为 `[21]`（ADE20K 类别 ID）。
 - 容器内 CUDA 不可用：
   - 先在宿主机执行 `nvidia-smi`。
   - 再执行 `docker run --rm --gpus all nvidia/cuda:12.3.2-runtime-ubuntu22.04 nvidia-smi`。

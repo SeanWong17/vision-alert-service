@@ -27,7 +27,7 @@ class SegConfigSpec:
     name: str
     config_relpath: str
     checkpoint_url: str
-    water_class_ids: tuple[int, ...]
+    target_class_ids: tuple[int, ...]
 
 
 @dataclass(frozen=True)
@@ -48,7 +48,7 @@ SEGFORMER_B0 = SegConfigSpec(
         "segformer_mit-b0_512x512_160k_ade20k/"
         "segformer_mit-b0_512x512_160k_ade20k_20210726_101530-8ffa8fda.pth"
     ),
-    water_class_ids=(21,),
+    target_class_ids=(21,),
 )
 
 SEGFORMER_B1 = SegConfigSpec(
@@ -59,7 +59,7 @@ SEGFORMER_B1 = SegConfigSpec(
         "segformer_mit-b1_512x512_160k_ade20k/"
         "segformer_mit-b1_512x512_160k_ade20k_20210726_112106-d70e859d.pth"
     ),
-    water_class_ids=(21,),
+    target_class_ids=(21,),
 )
 
 PACKS: tuple[PackSpec, ...] = (
@@ -223,7 +223,7 @@ def _write_metadata(dest_dir: Path, pack: PackSpec) -> None:
             "config_relpath": pack.segmentor.config_relpath,
             "checkpoint_url": pack.segmentor.checkpoint_url,
             "file": "seg_model.pt",
-            "water_class_ids": list(pack.segmentor.water_class_ids),
+            "target_class_ids": list(pack.segmentor.target_class_ids),
         },
         "note": pack.note,
         "installed_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
@@ -313,7 +313,7 @@ def main() -> None:
 
     latest_version = max(int(p.version) for p in packs)
     print(f"[done] installed {len(packs)} pack(s). latest numeric version in selection={latest_version:06d}")
-    print("[hint] set alert.segmentor_water_class_ids to [21] when using ADE20K-based packs")
+    print("[hint] set alert.segmentor_target_class_ids to [21] when using ADE20K-based packs")
 
 
 if __name__ == "__main__":

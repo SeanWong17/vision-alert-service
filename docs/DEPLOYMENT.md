@@ -8,7 +8,7 @@ python3 -m pip install -r requirements.txt
 如需 mmcv：
 ```bash
 python3 -m pip install -U openmim
-mim install "mmcv==2.0.0rc4"
+mim install mmcv
 ```
 
 ## 2. 运行目录
@@ -31,16 +31,16 @@ cp runtime/config.example.json runtime/config.json
 - `mmseg_config.py`
 - `seg_model.pt`
 
-快速下载轻量模型（人检 + 水面分割）：
+快速下载轻量模型（人检 + 语义分割）：
 ```bash
 python3 scripts/install_light_models.py --model-root runtime/models --packs nano-v11-b0
 ```
 
-如使用 ADE20K 预训练分割模型，请在 `runtime/config.json` 配置：
+如使用 ADE20K 预训练分割模型，请在 `runtime/config.json` 配置目标分割类别 ID：
 ```json
 {
   "alert": {
-    "segmentor_water_class_ids": [21]
+    "segmentor_target_class_ids": [21]
   }
 }
 ```

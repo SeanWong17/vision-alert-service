@@ -9,14 +9,14 @@ from pydantic import BaseModel, Field
 
 
 class DetectionBox(BaseModel):
-    """单个检测框及其水面关系特征。"""
+    """单个检测框及其分割区域关系特征。"""
 
     coordinate: List[int] = Field(default_factory=list)
     score: float = 0.0
     tagName: str = ""
     alarmTag: str = ""
-    overlapWater: float = 0.0
-    distanceToWater: float = 0.0
+    overlapSegment: float = 0.0
+    distanceToSegment: float = 0.0
 
     model_config = {"populate_by_name": True}
 

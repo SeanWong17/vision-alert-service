@@ -25,8 +25,6 @@ class InferenceOutcome:
     """单张图片推理的统一输出结构。"""
 
     detections: List[DetectionBox]
-    water_color: Dict[str, float]
-    shoreline_points: List[List[int]]
     rendered_image: np.ndarray
     image_width: int
     image_height: int
@@ -90,43 +88,13 @@ class AlertPipeline:
                 seg_config_path,
                 seg_model_path,
                 device=self.settings.segmentor_device,
-                water_class_ids=self.settings.segmentor_water_class_ids,
+                target_class_ids=self.settings.segmentor_target_class_ids,
             )
             logger.info("models loaded from %s", self.settings.model_root)
 
     @staticmethod
-    def _build_water_color(image: np.ndarray, mask: np.ndarray) -> Dict[str, float]:
-        """计算水面区域颜色均值与面积占比。"""
-
-        water_pixels = image[mask > 0]
-        if water_pixels.size == 0:
-            return {"water_ratio": 0.0}
-
-        bgr_mean = np.mean(water_pixels, axis=0)
-        return {
-            "water_ratio": float(np.sum(mask > 0) / mask.size),
-            "b_mean": round(float(bgr_mean[0]), 2),
-            "g_mean": round(float(bgr_mean[1]), 2),
-            "r_mean": round(float(bgr_mean[2]), 2),
-        }
-
-    @staticmethod
-    def _extract_shoreline(mask: np.ndarray) -> List[List[int]]:
-        """从水面掩膜提取近似岸线点。"""
-
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        shoreline: List[List[int]] = []
-        for contour in contours:
-            if len(contour) < 8:
-                continue
-            epsilon = 0.002 * cv2.arcLength(contour, True)
-            approx = cv2.approxPolyDP(contour, epsilon, True)
-            shoreline.extend([[int(p[0][0]), int(p[0][1])] for p in approx])
-        return shoreline
-
-    @staticmethod
-    def _distance_to_water_map(mask: np.ndarray) -> np.ndarray:
-        """计算每个像素到最近水面边界的距离图。"""
+    def _distance_to_segment_map(mask: np.ndarray) -> np.ndarray:
+        """计算每个像素到最近分割区域边界的距离图。"""
 
         return cv2.distanceTransform((mask == 0).astype(np.uint8), cv2.DIST_L2, 3)
 
@@ -140,19 +108,19 @@ class AlertPipeline:
         """根据后处理规则生成告警标签。"""
 
         if self._person_like(tag_name):
-            if overlap_ratio >= self.settings.in_water_overlap_ratio:
-                return "enter_water"
-            if distance <= self.settings.near_water_distance_px:
-                return "near_water"
+            if overlap_ratio >= self.settings.in_segment_overlap_ratio:
+                return "enter_segment"
+            if distance <= self.settings.near_segment_distance_px:
+                return "near_segment"
         return tag_name
 
-    def _to_detection_boxes(self, raw_det: List[List[Any]], water_mask: np.ndarray) -> List[DetectionBox]:
-        """将原始检测结果映射为带水面关系特征的检测框。"""
+    def _to_detection_boxes(self, raw_det: List[List[Any]], seg_mask: np.ndarray) -> List[DetectionBox]:
+        """将原始检测结果映射为带分割区域关系特征的检测框。"""
 
-        water_mask = water_mask[:, :, 0] if water_mask.ndim == 3 else water_mask
-        water_mask = (water_mask > 0).astype(np.uint8)
-        dist_map = self._distance_to_water_map(water_mask)
-        height, width = water_mask.shape[:2]
+        seg_mask = seg_mask[:, :, 0] if seg_mask.ndim == 3 else seg_mask
+        seg_mask = (seg_mask > 0).astype(np.uint8)
+        dist_map = self._distance_to_segment_map(seg_mask)
+        height, width = seg_mask.shape[:2]
 
         boxes: List[DetectionBox] = []
         for x1, y1, x2, y2, score, label in raw_det:
@@ -161,7 +129,7 @@ class AlertPipeline:
             if x2 <= x1 or y2 <= y1:
                 continue
 
-            crop = water_mask[y1:y2, x1:x2]
+            crop = seg_mask[y1:y2, x1:x2]
             overlap = float(np.sum(crop > 0))
             area = float((x2 - x1) * (y2 - y1))
             overlap_ratio = overlap / area if area else 0.0
@@ -177,8 +145,8 @@ class AlertPipeline:
                     score=float(score),
                     tagName=tag_name,
                     alarmTag=self._derive_alarm_tag(tag_name, overlap_ratio, distance),
-                    overlapWater=round(overlap_ratio, 4),
-                    distanceToWater=round(distance, 2),
+                    overlapSegment=round(overlap_ratio, 4),
+                    distanceToSegment=round(distance, 2),
                 )
             )
         return boxes
@@ -245,16 +213,15 @@ class AlertPipeline:
     def _draw_render(
         self,
         image: np.ndarray,
-        water_mask: np.ndarray,
+        seg_mask: np.ndarray,
         all_boxes: List[DetectionBox],
-        shoreline: List[List[int]],
     ) -> np.ndarray:
-        """绘制掩膜、检测框和岸线，输出标注图。"""
+        """绘制分割掩膜和检测框，输出标注图。"""
 
         canvas = image.copy()
 
         overlay = np.zeros_like(canvas)
-        overlay[water_mask > 0] = (255, 0, 0)
+        overlay[seg_mask > 0] = (255, 0, 0)
         canvas = cv2.addWeighted(canvas, 1.0, overlay, 0.25, 0)
 
         for det in all_boxes:
@@ -270,9 +237,6 @@ class AlertPipeline:
                 1,
                 cv2.LINE_AA,
             )
-
-        for x, y in shoreline:
-            cv2.circle(canvas, (x, y), 1, (0, 255, 255), -1)
 
         return canvas
 
@@ -290,24 +254,21 @@ class AlertPipeline:
         t1 = time.monotonic()
         metrics.observe_inference("detection", t1 - t0)
 
-        water_mask = self._segmentor.predict_mask(image)
+        seg_mask = self._segmentor.predict_mask(image)
         t2 = time.monotonic()
         metrics.observe_inference("segmentation", t2 - t1)
 
-        detections = self._to_detection_boxes(raw_det, water_mask)
+        detections = self._to_detection_boxes(raw_det, seg_mask)
 
-        water_mask_binary = (water_mask > 0).astype(np.uint8)
-        shoreline = self._extract_shoreline(water_mask_binary)
+        seg_mask_binary = (seg_mask > 0).astype(np.uint8)
         height, width = image.shape[:2]
-        rendered = self._draw_render(image, water_mask_binary, detections, shoreline)
+        rendered = self._draw_render(image, seg_mask_binary, detections)
         t3 = time.monotonic()
         metrics.observe_inference("postprocess", t3 - t2)
         metrics.observe_inference("total", t3 - t_start)
 
         return InferenceOutcome(
             detections=detections,
-            water_color=self._build_water_color(image, water_mask_binary),
-            shoreline_points=shoreline,
             rendered_image=rendered,
             image_width=width,
             image_height=height,
@@ -328,24 +289,21 @@ class AlertPipeline:
         t1 = time.monotonic()
         metrics.observe_inference("detection", t1 - t0)
 
-        water_mask = self._segmentor.predict_mask(image)
+        seg_mask = self._segmentor.predict_mask(image)
         t2 = time.monotonic()
         metrics.observe_inference("segmentation", t2 - t1)
 
-        detections = self._to_detection_boxes(raw_det, water_mask)
+        detections = self._to_detection_boxes(raw_det, seg_mask)
 
-        water_mask_binary = (water_mask > 0).astype(np.uint8)
-        shoreline = self._extract_shoreline(water_mask_binary)
+        seg_mask_binary = (seg_mask > 0).astype(np.uint8)
         height, width = image.shape[:2]
-        rendered = self._draw_render(image, water_mask_binary, detections, shoreline)
+        rendered = self._draw_render(image, seg_mask_binary, detections)
         t3 = time.monotonic()
         metrics.observe_inference("postprocess", t3 - t2)
         metrics.observe_inference("total", t3 - t_start)
 
         return InferenceOutcome(
             detections=detections,
-            water_color=self._build_water_color(image, water_mask_binary),
-            shoreline_points=shoreline,
             rendered_image=rendered,
             image_width=width,
             image_height=height,
@@ -391,8 +349,6 @@ class AlertPipeline:
                     reserved=reserved,
                     detail={
                         "roiResults": roi_results,
-                        "waterColor": outcome.water_color,
-                        "shorelinePoints": outcome.shoreline_points,
                     },
                 )
             )

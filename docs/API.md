@@ -82,14 +82,13 @@ Base URL: `http://{host}:8011/api`
                     "coordinate": [120, 120, 180, 220],
                     "score": 0.91,
                     "tagName": "person",
-                    "overlapWater": 0.12,
-                    "distanceToWater": 3.8
+                    "alarmTag": "enter_segment",
+                    "overlapSegment": 0.12,
+                    "distanceToSegment": 3.8
                   }
                 ]
               }
-            ],
-            "waterColor": {"water_ratio": 0.33},
-            "shorelinePoints": [[1, 2], [3, 4]]
+            ]
           }
         }
       ],
@@ -98,6 +97,22 @@ Base URL: `http://{host}:8011/api`
   ]
 }
 ```
+
+检测框字段说明：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `coordinate` | `[x1,y1,x2,y2]` | 检测框坐标 |
+| `score` | float | 检测置信度 |
+| `tagName` | string | 模型原始类别名 |
+| `alarmTag` | string | 后处理告警标签（如 `enter_segment`、`near_segment`） |
+| `overlapSegment` | float | 检测框与分割区域的重叠比例（0~1） |
+| `distanceToSegment` | float | 检测框中心到最近分割区域边界的像素距离 |
+
+`alarmTag` 规则（以人员类目为例）：
+- `enter_segment`：检测框与分割区域重叠比例 ≥ 阈值（`in_segment_overlap_ratio`）
+- `near_segment`：中心距分割区域边界 ≤ 阈值（`near_segment_distance_px`）
+- 其余目标：沿用原始 `tagName`
 
 ## 3. 异步结果确认
 - 方法：`POST /transmission/result_confirm`
