@@ -4,7 +4,6 @@
 - ConfigLoader：加载默认配置、加载 JSON 文件、严格/宽松模式行为、单例重置
 - AppConfig 及子模型：默认值正确性
 - load_alert_settings：从配置文件加载、环境变量覆盖
-- load_license_settings：从配置文件加载、环境变量覆盖
 - _resolve_latest_model_root：自动选择最大版本号子目录
 - _env_bool：布尔环境变量解析
 """
@@ -145,16 +144,6 @@ class TestAppConfigDefaults(unittest.TestCase):
         self.assertEqual(a.worker_threads, 4)
         self.assertEqual(a.upload_max_bytes, 20 * 1024 * 1024)
 
-    def test_license_config_defaults(self):
-        """LicenseConfig 默认值应符合预期。"""
-        from app.common.settings import LicenseConfig
-        lc = LicenseConfig()
-        self.assertFalse(lc.enabled)
-        self.assertFalse(lc.fail_open)
-        self.assertTrue(lc.require_machine_binding)
-        self.assertFalse(lc.allow_hostname_fallback)
-        self.assertEqual(lc.check_interval_seconds, 300)
-
     def test_app_config_contains_all_sections(self):
         """AppConfig 应包含全部子配置区段。"""
         from app.common.settings import AppConfig
@@ -163,7 +152,6 @@ class TestAppConfigDefaults(unittest.TestCase):
         self.assertIsNotNone(cfg.filepath)
         self.assertIsNotNone(cfg.server)
         self.assertIsNotNone(cfg.alert)
-        self.assertIsNotNone(cfg.license)
 
 
 @unittest.skipUnless(_runtime_ready(), "pydantic not installed")
@@ -502,192 +490,6 @@ class TestLoadAlertSettings(unittest.TestCase):
                 self.assertEqual(result.worker_threads, 12)
                 self.assertEqual(result.detector_device, "cpu")
                 self.assertAlmostEqual(result.detector_conf, 0.6)
-            finally:
-                mod.settings = original_settings
-        finally:
-            os.unlink(tmp_path)
-
-
-@unittest.skipUnless(_runtime_ready(), "pydantic not installed")
-class TestLoadLicenseSettings(unittest.TestCase):
-    """测试 load_license_settings 函数。"""
-
-    def setUp(self):
-        """重置 ConfigLoader 单例。"""
-        from app.common.settings import ConfigLoader
-        ConfigLoader._config = None
-
-    def tearDown(self):
-        """还原 ConfigLoader 单例。"""
-        from app.common.settings import ConfigLoader
-        ConfigLoader._config = None
-
-    def test_loads_defaults(self):
-        """无配置文件、无环境变量时应使用默认值。"""
-        import app.common.settings as mod
-        from app.common.settings import ConfigLoader
-
-        loader = ConfigLoader(path="/tmp/_license_test_no_file.json")
-        original_settings = mod.settings
-        try:
-            mod.settings = loader.config
-            result = mod.load_license_settings()
-            self.assertFalse(result.enabled)
-            self.assertFalse(result.fail_open)
-            self.assertTrue(result.require_machine_binding)
-            self.assertFalse(result.allow_hostname_fallback)
-            self.assertEqual(result.check_interval_seconds, 300)
-        finally:
-            mod.settings = original_settings
-
-    def test_env_overrides_enabled(self):
-        """ALERT_LICENSE_ENABLED 环境变量应覆盖 enabled。"""
-        import app.common.settings as mod
-        from app.common.settings import ConfigLoader
-
-        loader = ConfigLoader(path="/tmp/_license_env_test.json")
-        original_settings = mod.settings
-        try:
-            mod.settings = loader.config
-            with mock.patch.dict(os.environ, {"ALERT_LICENSE_ENABLED": "true"}):
-                result = mod.load_license_settings()
-                self.assertTrue(result.enabled)
-        finally:
-            mod.settings = original_settings
-
-    def test_env_overrides_fail_open(self):
-        """ALERT_LICENSE_FAIL_OPEN 环境变量应覆盖 fail_open。"""
-        import app.common.settings as mod
-        from app.common.settings import ConfigLoader
-
-        loader = ConfigLoader(path="/tmp/_license_env_test.json")
-        original_settings = mod.settings
-        try:
-            mod.settings = loader.config
-            with mock.patch.dict(os.environ, {"ALERT_LICENSE_FAIL_OPEN": "1"}):
-                result = mod.load_license_settings()
-                self.assertTrue(result.fail_open)
-        finally:
-            mod.settings = original_settings
-
-    def test_env_overrides_require_machine_binding(self):
-        """ALERT_LICENSE_REQUIRE_MACHINE_BINDING 环境变量应能关闭机器绑定。"""
-        import app.common.settings as mod
-        from app.common.settings import ConfigLoader
-
-        loader = ConfigLoader(path="/tmp/_license_env_test.json")
-        original_settings = mod.settings
-        try:
-            mod.settings = loader.config
-            with mock.patch.dict(
-                os.environ, {"ALERT_LICENSE_REQUIRE_MACHINE_BINDING": "false"}
-            ):
-                result = mod.load_license_settings()
-                self.assertFalse(result.require_machine_binding)
-        finally:
-            mod.settings = original_settings
-
-    def test_env_overrides_allow_hostname_fallback(self):
-        """ALERT_LICENSE_ALLOW_HOSTNAME_FALLBACK 环境变量应覆盖主机名回退。"""
-        import app.common.settings as mod
-        from app.common.settings import ConfigLoader
-
-        loader = ConfigLoader(path="/tmp/_license_env_test.json")
-        original_settings = mod.settings
-        try:
-            mod.settings = loader.config
-            with mock.patch.dict(
-                os.environ, {"ALERT_LICENSE_ALLOW_HOSTNAME_FALLBACK": "yes"}
-            ):
-                result = mod.load_license_settings()
-                self.assertTrue(result.allow_hostname_fallback)
-        finally:
-            mod.settings = original_settings
-
-    def test_env_overrides_license_path(self):
-        """ALERT_LICENSE_PATH 环境变量应覆盖 license_path。"""
-        import app.common.settings as mod
-        from app.common.settings import ConfigLoader
-
-        loader = ConfigLoader(path="/tmp/_license_env_test.json")
-        original_settings = mod.settings
-        try:
-            mod.settings = loader.config
-            with mock.patch.dict(
-                os.environ, {"ALERT_LICENSE_PATH": "/custom/license.json"}
-            ):
-                result = mod.load_license_settings()
-                self.assertEqual(result.license_path, "/custom/license.json")
-        finally:
-            mod.settings = original_settings
-
-    def test_env_overrides_public_key_path(self):
-        """ALERT_LICENSE_PUBLIC_KEY_PATH 环境变量应覆盖 public_key_path。"""
-        import app.common.settings as mod
-        from app.common.settings import ConfigLoader
-
-        loader = ConfigLoader(path="/tmp/_license_env_test.json")
-        original_settings = mod.settings
-        try:
-            mod.settings = loader.config
-            with mock.patch.dict(
-                os.environ, {"ALERT_LICENSE_PUBLIC_KEY_PATH": "/custom/pub.pem"}
-            ):
-                result = mod.load_license_settings()
-                self.assertEqual(result.public_key_path, "/custom/pub.pem")
-        finally:
-            mod.settings = original_settings
-
-    def test_env_overrides_check_interval_with_min_clamp(self):
-        """ALERT_LICENSE_CHECK_INTERVAL_SECONDS 应被下限钳位到 5。"""
-        import app.common.settings as mod
-        from app.common.settings import ConfigLoader
-
-        loader = ConfigLoader(path="/tmp/_license_env_test.json")
-        original_settings = mod.settings
-        try:
-            mod.settings = loader.config
-            with mock.patch.dict(
-                os.environ, {"ALERT_LICENSE_CHECK_INTERVAL_SECONDS": "60"}
-            ):
-                result = mod.load_license_settings()
-                self.assertEqual(result.check_interval_seconds, 60)
-            # 测试下限钳位
-            with mock.patch.dict(
-                os.environ, {"ALERT_LICENSE_CHECK_INTERVAL_SECONDS": "1"}
-            ):
-                result = mod.load_license_settings()
-                self.assertEqual(result.check_interval_seconds, 5)
-        finally:
-            mod.settings = original_settings
-
-    def test_loads_from_json_config(self):
-        """应能从 JSON 配置文件中加载 license 参数。"""
-        import app.common.settings as mod
-        from app.common.settings import ConfigLoader
-
-        data = {
-            "license": {
-                "enabled": True,
-                "fail_open": True,
-                "check_interval_seconds": 120,
-            }
-        }
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as fp:
-            json.dump(data, fp)
-            fp.flush()
-            tmp_path = fp.name
-        try:
-            loader = ConfigLoader(path=tmp_path)
-            original_settings = mod.settings
-            try:
-                mod.settings = loader.config
-                result = mod.load_license_settings()
-                self.assertTrue(result.enabled)
-                self.assertTrue(result.fail_open)
-                self.assertEqual(result.check_interval_seconds, 120)
             finally:
                 mod.settings = original_settings
         finally:

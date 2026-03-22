@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install lightweight detector + segmentor packs into runtime/models."""
+"""下载轻量检测与分割模型包并安装到 runtime/models 目录。"""
 
 from __future__ import annotations
 

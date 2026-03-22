@@ -31,11 +31,11 @@ docker compose up -d --build
 - 已安装 `nvidia-container-toolkit`
 - `docker info` 可见 NVIDIA runtime
 
-启动命令（叠加 GPU 覆盖配置）：
+启动前，先编辑 `docker/docker-compose.yaml`，取消注释 GPU 相关的环境变量和 `deploy.resources.devices` 配置，然后执行：
 
 ```bash
 cd docker
-docker compose -f docker-compose.yaml -f docker-compose.gpu.yaml up -d --build
+docker compose up -d --build
 ```
 
 ## 4. 健康检查

@@ -1,8 +1,0 @@
-# GPU 覆盖配置：与 docker-compose.yaml 叠加使用
-
-services:
-  ai_alerting:
-    gpus: all
-    environment:
-      - ALERT_DET_DEVICE=0
-      - ALERT_SEG_DEVICE=cuda:0

@@ -16,12 +16,10 @@ services:
       - ALERT_SEG_DEVICE=cpu
       - ALERT_IMAGE_RETENTION_DAYS=30
       - ALERT_CLEANUP_SCAN_INTERVAL_SECONDS=3600
-      - ALERT_LICENSE_ENABLED=false
-      - ALERT_LICENSE_PATH=/root/.ai_alerting/license/license.json
-      - ALERT_LICENSE_PUBLIC_KEY_PATH=/root/.ai_alerting/license/public_key.pem
-      - ALERT_LICENSE_ALLOW_HOSTNAME_FALLBACK=false
-      - ALERT_LICENSE_CHECK_INTERVAL_SECONDS=300
       - ALERT_CONFIG_STRICT=true
+      # GPU 模式：取消注释以下两行，并在下方 deploy 区段启用 GPU 资源
+      # - ALERT_DET_DEVICE=0
+      # - ALERT_SEG_DEVICE=cuda:0
     volumes:
       # 运行目录挂载：日志、上传图、结果图、模型
       - ../runtime:/root/.ai_alerting
@@ -40,6 +38,10 @@ services:
           memory: 8G
         reservations:
           memory: 2G
+        # GPU 模式：取消注释以下三行
+        # devices:
+        #   - driver: nvidia
+        #     capabilities: [gpu]
 
   # Redis 队列与结果存储
   redis:
