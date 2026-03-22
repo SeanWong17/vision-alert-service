@@ -112,8 +112,10 @@ class AlertPipeline:
         """根据后处理规则生成告警标签。"""
 
         if self._uses_segment_postprocess(tag_name):
-            if overlap_ratio >= self.settings.in_segment_overlap_ratio:
-                return "enter_segment"
+            if overlap_ratio > 0.0:
+                if overlap_ratio >= self.settings.in_segment_overlap_ratio:
+                    return "enter_segment"
+                return "near_segment"
             if distance <= self.settings.near_segment_distance_px:
                 return "near_segment"
         return tag_name

@@ -47,7 +47,7 @@ python3 main.py --host 0.0.0.0 --port 8011
 - 先做目标检测，再对整张图运行语义分割，并取 `alert.segmentor_target_class_ids` 对应的掩膜。
 - 仅对 `alert.segment_postprocess_class_names` 中配置的检测类别应用分割后处理；默认只处理 `person`。
 - 若检测框与目标分割掩膜的重叠比例 `overlapSegment` 大于等于 `alert.in_segment_overlap_ratio`，则将 `alarmTag` 标记为 `enter_segment`。
-- 若未达到进入阈值，但检测框中心到最近掩膜边界的距离 `distanceToSegment` 小于等于 `alert.near_segment_distance_px`，则将 `alarmTag` 标记为 `near_segment`。
+- 若检测框与目标分割掩膜存在正交集但未达到进入阈值，或虽无交集但检测框中心到最近掩膜边界的距离 `distanceToSegment` 小于等于 `alert.near_segment_distance_px`，则将 `alarmTag` 标记为 `near_segment`。
 - 其余检测结果保持原始 `tagName`，不会额外生成分割告警标签。
 
 ## 关键环境变量

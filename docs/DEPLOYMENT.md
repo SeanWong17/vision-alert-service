@@ -44,18 +44,19 @@ python3 scripts/install_light_models.py --model-root runtime/models --packs nano
 如使用 ADE20K 预训练分割模型，请在 `runtime/config.json` 配置目标分割类别 ID：
 ```json
 {
-  "alert": {
-    "segmentor_target_class_ids": [2],
-    "segment_postprocess_class_names": ["person"],
-    "in_segment_overlap_ratio": 0.8,
-    "near_segment_distance_px": 24
+    "alert": {
+      "segmentor_target_class_ids": [2],
+      "segment_postprocess_class_names": ["person"],
+      "in_segment_overlap_ratio": 0.8,
+      "near_segment_distance_px": 24
+    }
   }
-}
 ```
 
 说明：
 - `segment_postprocess_class_names` 控制哪些检测类别会套用分割后处理，默认只包含 `person`。
-- `in_segment_overlap_ratio` 控制 `enter_segment` 判定阈值，当前默认值为 `0.8`。
+- `in_segment_overlap_ratio` 控制 `enter_segment` 判定阈值；当前默认值为 `0.8`。
+- 当检测框与目标分割区域存在正交集但尚未达到进入阈值时，会判为 `near_segment`。
 
 ## 3. Docker
 Docker 文件在 `docker/` 目录（compose 文件名为 `docker-compose.yaml`）。
