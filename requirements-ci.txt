@@ -1,12 +1,13 @@
 # CI 轻量依赖：用于运行单元测试，不安装推理栈
 # 与 requirements.txt 共享的基础依赖在此直接列出，推理栈（torch/ultralytics/mmseg）不安装
+pytest
 fastapi>=0.110
 starlette>=0.37
 httpx>=0.27
 anyio>=4.4
 python-multipart
 pydantic>=2.0
-numpy
+numpy<2
 opencv-python-headless
 redis
 requests

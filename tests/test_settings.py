@@ -100,6 +100,13 @@ class TestResolveLatestModelRoot(unittest.TestCase):
             os.makedirs(os.path.join(tmpdir, "42"))
             self.assertEqual(self._call(tmpdir), os.path.join(tmpdir, "42"))
 
+    def test_preserves_zero_padded_version_name(self):
+        """零填充版本目录应保留原始目录名，避免丢失前导 0。"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.makedirs(os.path.join(tmpdir, "000001"))
+            os.makedirs(os.path.join(tmpdir, "000010"))
+            self.assertEqual(self._call(tmpdir), os.path.join(tmpdir, "000010"))
+
 
 @unittest.skipUnless(_runtime_ready(), "pydantic not installed")
 class TestAppConfigDefaults(unittest.TestCase):

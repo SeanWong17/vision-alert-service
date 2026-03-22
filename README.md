@@ -81,10 +81,24 @@ pip install -r requirements-ci.txt
 # 运行全部测试
 pytest
 
+# 构建并运行测试镜像
+docker build -f docker/Dockerfile --target test -t ai-alerting:test .
+docker run --rm -v "$(pwd)/runtime:/root/.ai_alerting" ai-alerting:test
+
+# 使用 compose 运行测试容器
+cd docker
+docker compose --profile test run --rm ai_alerting_test
+
 # 代码检查
 ruff check app tests scripts
 ruff format --check app tests scripts
 ```
+
+容器验证补充：
+- 测试镜像已包含 `pytest`，可直接在 Docker 中跑全量测试。
+- 运行镜像已补齐 OpenCV 所需系统库，包含 `libgl1`。
+- 运行镜像已改为在构建阶段固化安装兼容的 full `mmcv`；仅有 `mmcv-lite` 不能完成当前 `mmseg` 推理链路。
+- 推理运行时已将 `numpy` 固定为 `<2`，避免 `torch 2.1.x` / `mmcv 2.1.x` 在 NumPy 2.x 下出现 ABI 兼容问题。
 
 CI 使用 GitHub Actions，覆盖 Python 3.10 / 3.11 / 3.12 三个版本，并含 ruff lint 和 Docker build 验证。
 

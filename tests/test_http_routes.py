@@ -53,9 +53,12 @@ class UploadRouteErrorTest(unittest.TestCase):
         patcher_app.start()
         self.addCleanup(patcher_app.stop)
         app = create_app()
+        app.state.log_unhandled_tracebacks = False
         # 使用 FastAPI dependency_overrides 替代对路由模块的 patch
         app.dependency_overrides[_get_service] = lambda: service
-        return TestClient(app, raise_server_exceptions=False)
+        client = TestClient(app, raise_server_exceptions=False)
+        self.addCleanup(client.close)
+        return client
 
     def test_upload_alerting_error_returns_400(self):
         """业务异常应映射为 400。"""

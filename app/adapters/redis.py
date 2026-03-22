@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from threading import Lock
 
 from redis import ConnectionPool, Redis
@@ -21,11 +22,15 @@ class RedisClient(Redis):
         if RedisClient._pool is None:
             with RedisClient._lock:
                 if RedisClient._pool is None:
+                    host = kwargs.get("host") or os.getenv("ALERT_REDIS_HOST", settings.redis.host)
+                    port = int(kwargs.get("port", os.getenv("ALERT_REDIS_PORT", settings.redis.port)))
+                    db = int(kwargs.get("db", os.getenv("ALERT_REDIS_DB", settings.redis.database)))
+                    password = kwargs.get("password", os.getenv("ALERT_REDIS_PASSWORD", settings.redis.password))
                     RedisClient._pool = ConnectionPool(
-                        host=kwargs.get("host", settings.redis.host),
-                        port=kwargs.get("port", settings.redis.port),
-                        db=kwargs.get("db", settings.redis.database),
-                        password=kwargs.get("password", settings.redis.password),
+                        host=host,
+                        port=port,
+                        db=db,
+                        password=password,
                         encoding="utf-8",
                         decode_responses=True,
                     )

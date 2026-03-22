@@ -19,7 +19,7 @@ from app.alerting.schemas import ConfirmPayload, QueueTask, StoredResult
 from app.alerting.store import AlertStore
 from app.alerting.task_adapter import normalize_tasks, parse_confirm_payload, parse_upload_envelope
 from app.common.errors import AlertingError, ApiError
-from app.common.logging import logger
+from app.common.logging import logger, request_log_extra
 from app.common.metrics import metrics
 
 # 文件 I/O 常量
@@ -238,6 +238,8 @@ class AlertService:
         self._validate_upload_type(image)
         safe_filename = self._sanitize_filename(file_name)
         tasks = normalize_tasks(tasks_raw, self.settings)
+        started_at = datetime.now().astimezone().isoformat(timespec="milliseconds")
+        started_perf = time.perf_counter()
 
         # 将上传内容一次性读入内存，避免 write-then-read 的磁盘往返。
         image_bytes = image.file.read()
@@ -264,6 +266,20 @@ class AlertService:
         has_alarm = any(item.reserved == "1" for item in task_results)
 
         self._save_result_image(safe_filename, outcome.rendered_image, has_alarm=has_alarm)
+        finished_at = datetime.now().astimezone().isoformat(timespec="milliseconds")
+        total_elapsed_ms = round((time.perf_counter() - started_perf) * 1000, 2)
+        logger.info(
+            "analysis sync completed file=%s started_at=%s finished_at=%s total_ms=%.2f detection_ms=%.2f segmentation_ms=%.2f postprocess_ms=%.2f alarms=%s",
+            safe_filename,
+            started_at,
+            finished_at,
+            total_elapsed_ms,
+            outcome.timing_ms.get("detection", 0.0),
+            outcome.timing_ms.get("segmentation", 0.0),
+            outcome.timing_ms.get("postprocess", 0.0),
+            has_alarm,
+            extra=request_log_extra(duration_ms=total_elapsed_ms),
+        )
         return [item.model_dump() for item in task_results]
 
     def process_async_task(self, task: QueueTask) -> None:
@@ -275,12 +291,16 @@ class AlertService:
             return
 
         try:
+            started_at = datetime.now().astimezone().isoformat(timespec="milliseconds")
+            started_perf = time.perf_counter()
             outcome = self.pipeline.run(task.file_path, task.tasks)
             task_results = self.pipeline.build_task_results(task.tasks, outcome)
             results = [item.model_dump() for item in task_results]
             has_alarm = any(item.reserved == "1" for item in task_results)
 
             self._save_result_image(task.file_name, outcome.rendered_image, has_alarm=has_alarm)
+            total_elapsed_ms = round((time.perf_counter() - started_perf) * 1000, 2)
+            finished_at = datetime.now().astimezone().isoformat(timespec="milliseconds")
             self.store.save_result(
                 task.session_id,
                 task.image_id,
@@ -289,6 +309,24 @@ class AlertService:
                     filename=task.file_name,
                     results=results,
                     timestamp=int(datetime.now().timestamp() * 1000),
+                ),
+            )
+            logger.info(
+                "analysis async completed file=%s session_id=%s image_id=%s started_at=%s finished_at=%s total_ms=%.2f detection_ms=%.2f segmentation_ms=%.2f postprocess_ms=%.2f alarms=%s",
+                task.file_name,
+                task.session_id,
+                task.image_id,
+                started_at,
+                finished_at,
+                total_elapsed_ms,
+                outcome.timing_ms.get("detection", 0.0),
+                outcome.timing_ms.get("segmentation", 0.0),
+                outcome.timing_ms.get("postprocess", 0.0),
+                has_alarm,
+                extra=request_log_extra(
+                    session_id=task.session_id,
+                    image_id=task.image_id,
+                    duration_ms=total_elapsed_ms,
                 ),
             )
             metrics.inc_async_task("success")

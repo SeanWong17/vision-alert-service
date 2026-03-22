@@ -244,10 +244,11 @@ def _resolve_latest_model_root(base_dir: str) -> str:
     """解析最新版本模型目录（取最大数字子目录）。"""
     if not os.path.isdir(base_dir):
         return base_dir
-    versions = [int(name) for name in os.listdir(base_dir) if name.isdigit()]
-    if not versions:
+    version_names = [name for name in os.listdir(base_dir) if name.isdigit()]
+    if not version_names:
         return base_dir
-    return os.path.join(base_dir, str(max(versions)))
+    latest = max(version_names, key=lambda name: int(name))
+    return os.path.join(base_dir, latest)
 
 
 def load_alert_settings() -> AlertSettings:

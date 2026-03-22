@@ -5,14 +5,16 @@ uvicorn
 click
 python-multipart
 pydantic>=2.0
-numpy
+numpy<2
 opencv-python-headless
 redis
 requests
 
 # 推理运行依赖
-torch
+torch==2.1.0
 ultralytics
 mmengine
 mmsegmentation
-# mmcv 需要与 CUDA/PyTorch 版本匹配，建议在部署环境用 openmim 单独安装
+ftfy
+regex
+# full mmcv 由 Dockerfile / 部署脚本在安装完 PyTorch 后通过 openmim 固化安装。

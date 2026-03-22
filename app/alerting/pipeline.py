@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from threading import Lock
 from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
@@ -28,10 +28,14 @@ class InferenceOutcome:
     rendered_image: np.ndarray
     image_width: int
     image_height: int
+    timing_ms: Dict[str, float] = field(default_factory=dict)
 
 
 class AlertPipeline:
     """告警领域主流水线。"""
+
+    SEGMENT_OVERLAY_COLOR = np.array((0, 165, 255), dtype=np.float32)
+    SEGMENT_OVERLAY_ALPHA = 0.35
 
     def __init__(self, settings: AlertSettings):
         """初始化流水线配置和模型句柄。"""
@@ -220,9 +224,25 @@ class AlertPipeline:
 
         canvas = image.copy()
 
-        overlay = np.zeros_like(canvas)
-        overlay[seg_mask > 0] = (255, 0, 0)
-        canvas = cv2.addWeighted(canvas, 1.0, overlay, 0.25, 0)
+        mask = seg_mask > 0
+        if np.any(mask):
+            canvas_float = canvas.astype(np.float32)
+            canvas_float[mask] = (
+                canvas_float[mask] * (1.0 - self.SEGMENT_OVERLAY_ALPHA)
+                + self.SEGMENT_OVERLAY_COLOR * self.SEGMENT_OVERLAY_ALPHA
+            )
+            canvas = np.clip(canvas_float, 0, 255).astype(np.uint8)
+            class_label = ",".join(str(v) for v in self.settings.segmentor_target_class_ids)
+            cv2.putText(
+                canvas,
+                f"seg:{class_label}",
+                (12, 24),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                tuple(int(v) for v in self.SEGMENT_OVERLAY_COLOR),
+                2,
+                cv2.LINE_AA,
+            )
 
         for det in all_boxes:
             x1, y1, x2, y2 = det.coordinate
@@ -239,6 +259,17 @@ class AlertPipeline:
             )
 
         return canvas
+
+    @staticmethod
+    def _timing_ms(t0: float, t1: float, t2: float, t3: float, t_start: float) -> Dict[str, float]:
+        """将推理各阶段耗时统一转换为毫秒。"""
+
+        return {
+            "detection": round((t1 - t0) * 1000, 2),
+            "segmentation": round((t2 - t1) * 1000, 2),
+            "postprocess": round((t3 - t2) * 1000, 2),
+            "total": round((t3 - t_start) * 1000, 2),
+        }
 
     def run(self, image_path: str, tasks: List[AlarmTask]) -> InferenceOutcome:
         """执行一次完整推理流程。"""
@@ -272,6 +303,7 @@ class AlertPipeline:
             rendered_image=rendered,
             image_width=width,
             image_height=height,
+            timing_ms=self._timing_ms(t0, t1, t2, t3, t_start),
         )
 
     def run_from_buffer(self, image_bytes: bytes, tasks: List[AlarmTask]) -> InferenceOutcome:
@@ -307,6 +339,7 @@ class AlertPipeline:
             rendered_image=rendered,
             image_width=width,
             image_height=height,
+            timing_ms=self._timing_ms(t0, t1, t2, t3, t_start),
         )
 
     def build_task_results(self, tasks: List[AlarmTask], outcome: InferenceOutcome) -> List[TaskResult]:

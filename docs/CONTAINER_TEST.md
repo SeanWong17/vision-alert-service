@@ -18,6 +18,26 @@ python3 scripts/install_light_models.py --model-root runtime/models --packs nano
 
 ## 2. 启动容器（CPU）
 
+先运行容器内单元测试：
+
+```bash
+cd docker
+docker compose --profile test build ai_alerting_test
+docker compose --profile test run --rm ai_alerting_test
+```
+
+如果只想直接构建测试镜像，也可以在仓库根目录执行：
+
+```bash
+docker build -f docker/Dockerfile --target test -t ai-alerting:test .
+docker run --rm -v "$(pwd)/runtime:/root/.ai_alerting" ai-alerting:test
+```
+
+说明：
+- 测试镜像已经包含 `pytest`；如容器内出现 `No module named pytest`，说明测试依赖镜像未按最新配置重建。
+
+单元测试通过后，再启动服务容器：
+
 ```bash
 cd docker
 docker compose up -d --build
@@ -53,10 +73,27 @@ curl -s http://127.0.0.1:8011/readyz
 python3 scripts/smoke_api.py --host 127.0.0.1 --port 8011 --image /abs/path/to/test.jpg
 ```
 
+重要说明：
+- `/healthz` 和 `/readyz` 通过，只代表 Web 服务、worker 和 Redis 链路正常，不代表真实模型推理依赖已经闭合。
+- 当前 `Dockerfile` 已改为在镜像构建阶段固化安装兼容的 full `mmcv`。
+- 当前运行镜像已将 `numpy` 固定为 `<2`，避免 `torch 2.1.x` / `mmcv 2.1.x` 在 NumPy 2.x 下出现 ABI 兼容告警。
+- 如果镜像内仍然出现 `mmcv._ext` 缺失，说明 full `mmcv` 安装阶段失败或被替换成了 `mmcv-lite`。
+
 ## 6. 常见排查
 
+- 容器启动时报 `libGL.so.1`：
+  - 说明 OpenCV 运行库不完整；镜像需包含 `libgl1`。
 - 分割结果全空：
   - 确认 `runtime/config.json` 里 `alert.segmentor_target_class_ids` 为 `[21]`（ADE20K 类别 ID）。
+- 真实图片请求报 `No module named 'mmcv._ext'`：
+  - 说明当前只有 `mmcv-lite`，或 Docker 构建阶段的 full `mmcv` 安装失败。
+  - 优先检查镜像构建日志中的 `python -m mim install "mmcv==..."` 步骤。
+- 真实图片请求在 `mmseg` 导入阶段报 `ftfy` / `regex` 缺失：
+  - 这是 `mmseg` 文本/Tokenizer 相关依赖未装齐的表现。
+  - 当前这两个包已同步加入 `requirements.txt`。
+- 容器日志出现 `A module that was compiled using NumPy 1.x cannot be run in NumPy 2.x`：
+  - 说明 `torch/mmcv` 与 NumPy 主版本不兼容。
+  - 当前依赖已固定为 `numpy<2`；如果仍看到该告警，说明镜像未按最新依赖重建。
 - 容器内 CUDA 不可用：
   - 先在宿主机执行 `nvidia-smi`。
   - 再执行 `docker run --rm --gpus all nvidia/cuda:12.3.2-runtime-ubuntu22.04 nvidia-smi`。

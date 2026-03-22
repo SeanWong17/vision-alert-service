@@ -5,11 +5,17 @@
 python3 -m pip install -r requirements.txt
 ```
 
-如需 mmcv：
+如需真实分割推理，必须安装与当前 PyTorch / CUDA 匹配的 **full `mmcv`**：
 ```bash
 python3 -m pip install -U openmim
 mim install mmcv
 ```
+
+验证记录补充：
+- 仅安装 `mmsegmentation` 不够；真实图片请求会在运行期导入 `mmseg`，缺少 full `mmcv` 时会报 `No module named 'mmcv._ext'`。
+- `mmcv-lite` 不能替代 full `mmcv` 完成当前模型推理链路。
+- 当前 `Dockerfile` 已改为在镜像构建阶段通过 `openmim` 固化安装兼容的 full `mmcv`；非 Docker 部署仍需按上面命令手工安装。
+- 当前依赖已将 `numpy` 固定为 `<2`，避免 `torch 2.1.x` / `mmcv 2.1.x` 在 NumPy 2.x 下出现 ABI 兼容告警或运行时异常。
 
 ## 2. 运行目录
 创建运行目录：
@@ -47,6 +53,19 @@ python3 scripts/install_light_models.py --model-root runtime/models --packs nano
 ## 3. Docker
 Docker 文件在 `docker/` 目录（compose 文件名为 `docker-compose.yaml`）。
 容器测试细化步骤见：`docs/CONTAINER_TEST.md`。
+
+当前 Dockerfile 已内置以下运行时系统包：
+- `libgl1`
+- `libglib2.0-0`
+- `libsm6`
+- `libxrender1`
+- `libxext6`
+- `tzdata`
+
+验证记录补充：
+- `libgl1` 是当前镜像内 `import cv2` 所需的系统动态库；缺失时容器启动会报 `libGL.so.1`。
+- 镜像默认时区已设为 `Asia/Shanghai`。
+- Docker 构建阶段会额外安装兼容的 full `mmcv`，不再依赖容器启动后手工补装。
 
 启动：
 ```bash

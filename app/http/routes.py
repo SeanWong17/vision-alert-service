@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextvars import copy_context
 from functools import partial
 from typing import Any
 
@@ -18,7 +19,8 @@ async def _run_sync(func, *args):
     """将同步业务函数委派到默认线程池，避免阻塞事件循环。"""
 
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, partial(func, *args))
+    ctx = copy_context()
+    return await loop.run_in_executor(None, partial(ctx.run, func, *args))
 
 
 @router.post("/transmission/upload")

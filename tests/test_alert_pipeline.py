@@ -1,5 +1,6 @@
 """告警流水线后处理测试。"""
 
+import numpy as np
 import unittest
 
 
@@ -80,6 +81,19 @@ class AlertPipelinePostprocessTest(unittest.TestCase):
         self.assertEqual(self.pipeline._derive_alarm_tag("person", overlap_ratio=0.2, distance=100), "enter_segment")
         self.assertEqual(self.pipeline._derive_alarm_tag("person", overlap_ratio=0.01, distance=5), "near_segment")
         self.assertEqual(self.pipeline._derive_alarm_tag("car", overlap_ratio=0.2, distance=1), "car")
+
+    def test_draw_render_applies_segment_overlay_to_masked_pixels(self):
+        """结果图应对目标分割类掩膜区域绘制半透明叠色。"""
+
+        image = np.full((32, 32, 3), 100, dtype=np.uint8)
+        seg_mask = np.zeros((32, 32), dtype=np.uint8)
+        seg_mask[8:24, 8:24] = 1
+
+        rendered = self.pipeline._draw_render(image, seg_mask, [])
+
+        self.assertTrue(np.array_equal(rendered[0, 0], image[0, 0]))
+        self.assertFalse(np.array_equal(rendered[12, 12], image[12, 12]))
+        self.assertGreater(int(rendered[12, 12][2]), int(image[12, 12][2]))
 
 
 if __name__ == "__main__":

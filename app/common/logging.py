@@ -5,12 +5,14 @@ from __future__ import annotations
 import json
 import logging
 import os
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from logging.handlers import TimedRotatingFileHandler
 
 from app.common.settings import settings
 
 DEFAULT_LOG_FORMAT = "[%(asctime)s][%(levelname)s][%(name)s:%(lineno)d] %(message)s"
+_CURRENT_REQUEST_ID: ContextVar[str | None] = ContextVar("current_request_id", default=None)
 
 
 class JsonFormatter(logging.Formatter):
@@ -78,6 +80,27 @@ def build_logger(log_dir: str, log_name: str = "ai_alerting.log", level: int = l
     log.addHandler(file_handler)
     log.addHandler(stream_handler)
     return log
+
+
+def bind_request_id(request_id: str):
+    """将 request_id 绑定到当前上下文。"""
+
+    return _CURRENT_REQUEST_ID.set(request_id)
+
+
+def reset_request_id(token) -> None:
+    """重置当前上下文中的 request_id。"""
+
+    _CURRENT_REQUEST_ID.reset(token)
+
+
+def request_log_extra(**extra) -> dict:
+    """为日志补齐当前 request_id，便于跨线程串联请求链路。"""
+
+    request_id = _CURRENT_REQUEST_ID.get()
+    if request_id:
+        extra.setdefault("request_id", request_id)
+    return extra
 
 
 # 导出全局 logger，供各模块直接使用。
