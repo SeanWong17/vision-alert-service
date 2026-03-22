@@ -100,7 +100,7 @@ class AlertConfig(BaseModel):
     default_limit: int = 1
     roi_default: tuple[int, int, int, int] = (-1, -1, -1, -1)
     near_segment_distance_px: int = 24
-    in_segment_overlap_ratio: float = 0.8
+    in_segment_overlap_ratio: float = 0.25
     worker_poll_seconds: float = 0.05
     worker_threads: int = 4
     worker_max_inflight: int = 64
@@ -217,7 +217,7 @@ class AlertSettings:
     default_limit: int = 1
     roi_default: tuple[int, int, int, int] = (-1, -1, -1, -1)
     near_segment_distance_px: int = 24
-    in_segment_overlap_ratio: float = 0.8
+    in_segment_overlap_ratio: float = 0.25
     worker_poll_seconds: float = 0.05
     worker_threads: int = 4
     worker_max_inflight: int = 64

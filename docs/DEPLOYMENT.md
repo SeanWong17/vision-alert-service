@@ -47,7 +47,7 @@ python3 scripts/install_light_models.py --model-root runtime/models --packs nano
     "alert": {
       "segmentor_target_class_ids": [2],
       "segment_postprocess_class_names": ["person"],
-      "in_segment_overlap_ratio": 0.8,
+      "in_segment_overlap_ratio": 0.25,
       "near_segment_distance_px": 24
     }
   }
@@ -55,7 +55,7 @@ python3 scripts/install_light_models.py --model-root runtime/models --packs nano
 
 说明：
 - `segment_postprocess_class_names` 控制哪些检测类别会套用分割后处理，默认只包含 `person`。
-- `in_segment_overlap_ratio` 控制 `enter_segment` 判定阈值；当前默认值为 `0.8`。
+- `in_segment_overlap_ratio` 控制 `enter_segment` 判定阈值；当前默认值为 `0.25`。
 - 当检测框与目标分割区域存在正交集但尚未达到进入阈值时，会判为 `near_segment`。
 
 ## 3. Docker

@@ -78,7 +78,7 @@ class AlertPipelinePostprocessTest(unittest.TestCase):
     def test_derive_alarm_tag_rules(self):
         """配置类目应按重叠率和距离映射业务标签。"""
 
-        self.assertEqual(self.pipeline._derive_alarm_tag("person", overlap_ratio=0.8, distance=100), "enter_segment")
+        self.assertEqual(self.pipeline._derive_alarm_tag("person", overlap_ratio=0.25, distance=100), "enter_segment")
         self.assertEqual(self.pipeline._derive_alarm_tag("person", overlap_ratio=0.2, distance=100), "near_segment")
         self.assertEqual(self.pipeline._derive_alarm_tag("person", overlap_ratio=0.01, distance=5), "near_segment")
         self.assertEqual(self.pipeline._derive_alarm_tag("person", overlap_ratio=0.0, distance=5), "near_segment")

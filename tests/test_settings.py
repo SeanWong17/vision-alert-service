@@ -150,7 +150,7 @@ class TestAppConfigDefaults(unittest.TestCase):
         self.assertEqual(a.segmentor_device, "cuda:0")
         self.assertEqual(a.segmentor_target_class_ids, (2,))
         self.assertEqual(a.segment_postprocess_class_names, ("person",))
-        self.assertEqual(a.in_segment_overlap_ratio, 0.8)
+        self.assertEqual(a.in_segment_overlap_ratio, 0.25)
         self.assertEqual(a.worker_threads, 4)
         self.assertEqual(a.upload_max_bytes, 20 * 1024 * 1024)
 
@@ -363,7 +363,7 @@ class TestLoadAlertSettings(unittest.TestCase):
                 self.assertEqual(result.detector_device, "0")
                 self.assertEqual(result.segmentor_device, "cuda:0")
                 self.assertEqual(result.segment_postprocess_class_names, ("person",))
-                self.assertEqual(result.in_segment_overlap_ratio, 0.8)
+                self.assertEqual(result.in_segment_overlap_ratio, 0.25)
                 self.assertEqual(result.worker_threads, 4)
                 self.assertEqual(result.worker_max_inflight, 64)
                 self.assertEqual(result.det_model_name, "det_model.pt")

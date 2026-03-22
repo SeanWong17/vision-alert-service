@@ -74,7 +74,7 @@
     "__comment_near_segment_distance_px": "近区域判定距离阈值（像素）",
     "near_segment_distance_px": 24,
     "__comment_in_segment_overlap_ratio": "进入目标分割区域判定的重叠比例阈值",
-    "in_segment_overlap_ratio": 0.8,
+    "in_segment_overlap_ratio": 0.25,
     "__comment_worker_poll_seconds": "异步 worker 空轮询间隔（秒）",
     "worker_poll_seconds": 0.05,
     "__comment_worker_threads": "异步 worker 线程数",
