@@ -1,16 +1,14 @@
-# Web 服务运行依赖
-fastapi
+# 运行时依赖（Web 服务 + 推理栈）
+fastapi>=0.110
+starlette>=0.37
 uvicorn
 click
 python-multipart
-
-# 核心运行依赖
 pydantic>=2.0
 numpy
 opencv-python-headless
 redis
 requests
-cryptography
 
 # 推理运行依赖
 torch
