@@ -3,7 +3,7 @@ name = "ai-alerting-server"
 version = "1.0.0"
 description = "视觉告警服务：YOLO 目标检测 + MMSeg 语义分割 + 类别后处理"
 requires-python = ">=3.10"
-license = {text = "Proprietary"}
+license = {text = "CC BY-NC 4.0"}
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

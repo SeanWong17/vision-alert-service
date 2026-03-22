@@ -104,18 +104,6 @@ class AlertConfig(BaseModel):
     dead_letter_maxlen: int = 1000
 
 
-class LicenseConfig(BaseModel):
-    """授权校验配置。"""
-
-    enabled: bool = False
-    license_path: str = op.join(APP_HOME, "license", "license.json")
-    public_key_path: str = op.join(APP_HOME, "license", "public_key.pem")
-    fail_open: bool = False
-    require_machine_binding: bool = True
-    allow_hostname_fallback: bool = False
-    check_interval_seconds: int = 300
-
-
 class AppConfig(BaseModel):
     """顶层配置模型。"""
 
@@ -123,7 +111,6 @@ class AppConfig(BaseModel):
     filepath: FileSettings = FileSettings()
     server: ServerSettings = ServerSettings()
     alert: AlertConfig = AlertConfig()
-    license: LicenseConfig = LicenseConfig()
 
 
 class ConfigLoadError(RuntimeError):
@@ -253,19 +240,6 @@ class AlertSettings:
         return f"{self.result_group_prefix}:{session_id}"
 
 
-@dataclass
-class LicenseSettings:
-    """运行时 license 校验配置。"""
-
-    enabled: bool
-    license_path: str
-    public_key_path: str
-    fail_open: bool = False
-    require_machine_binding: bool = True
-    allow_hostname_fallback: bool = False
-    check_interval_seconds: int = 300
-
-
 def _resolve_latest_model_root(base_dir: str) -> str:
     """解析最新版本模型目录（取最大数字子目录）。"""
     if not os.path.isdir(base_dir):
@@ -328,27 +302,3 @@ def _env_bool(name: str, default: bool) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def load_license_settings() -> LicenseSettings:
-    """从配置文件与环境变量加载授权校验参数。"""
-
-    license_cfg = settings.license
-    return LicenseSettings(
-        enabled=_env_bool("ALERT_LICENSE_ENABLED", bool(license_cfg.enabled)),
-        license_path=os.getenv("ALERT_LICENSE_PATH", license_cfg.license_path),
-        public_key_path=os.getenv("ALERT_LICENSE_PUBLIC_KEY_PATH", license_cfg.public_key_path),
-        fail_open=_env_bool("ALERT_LICENSE_FAIL_OPEN", bool(license_cfg.fail_open)),
-        require_machine_binding=_env_bool(
-            "ALERT_LICENSE_REQUIRE_MACHINE_BINDING",
-            bool(license_cfg.require_machine_binding),
-        ),
-        allow_hostname_fallback=_env_bool(
-            "ALERT_LICENSE_ALLOW_HOSTNAME_FALLBACK",
-            bool(license_cfg.allow_hostname_fallback),
-        ),
-        check_interval_seconds=max(
-            5,
-            int(os.getenv("ALERT_LICENSE_CHECK_INTERVAL_SECONDS", str(license_cfg.check_interval_seconds))),
-        ),
-    )

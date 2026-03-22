@@ -152,7 +152,6 @@ Base URL: `http://{host}:8011/api`
   "inflightTasks":0,
   "storageMode":"redis",
   "redisOk":true,
-  "licenseOk":true,
   "queueLength":0,
   "timestamp":1700000000000
 }

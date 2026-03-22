@@ -35,5 +35,6 @@ build/
 # Editor / OS
 .idea/
 .vscode/
+.claude/
 *.swp
 *~

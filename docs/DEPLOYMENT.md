@@ -14,7 +14,7 @@ mim install mmcv
 ## 2. 运行目录
 创建运行目录：
 ```bash
-mkdir -p runtime/log runtime/images/upload runtime/images/result runtime/models/000001 runtime/license
+mkdir -p runtime/log runtime/images/upload runtime/images/result runtime/models/000001
 cp runtime/config.example.json runtime/config.json
 ```
 
@@ -24,7 +24,6 @@ cp runtime/config.example.json runtime/config.json
 - `runtime/images/result`
 - `runtime/models/<version>`
 - `runtime/config.json`
-- `runtime/license`
 
 模型目录下需有：
 - `det_model.pt`
@@ -75,59 +74,7 @@ docker compose up -d --build
 **日志**
 - `ALERT_LOG_FORMAT`：日志输出格式，`json` 启用 JSON 结构化格式（适用于 ELK/Loki/CloudWatch），默认文本格式
 
-**授权**
-- `ALERT_LICENSE_ENABLED`：是否启用 license 校验，默认 `false`
-- `ALERT_LICENSE_PATH`：license 文件路径
-- `ALERT_LICENSE_PUBLIC_KEY_PATH`：Ed25519 公钥路径（不设则使用内置公钥）
-- `ALERT_LICENSE_ALLOW_HOSTNAME_FALLBACK`：machine-id 不可读时是否回退 hostname，默认 `false`
-- `ALERT_LICENSE_CHECK_INTERVAL_SECONDS`：运行期 license 复查间隔（秒），默认 `300`
-
-受保护构建（PyArmor）：
-```bash
-./scripts/build_protected_image.sh ai_alerting:protected
-docker run -d --name ai_alerting_service \
-  -p 8011:8011 \
-  -v "$(pwd)/runtime:/root/.ai_alerting" \
-  ai_alerting:protected
-```
-
-## 4. License（到期 + 设备绑定 + 签名）
-生成密钥对：
-```bash
-python3 scripts/license_tool.py gen-key \
-  --private-key runtime/license/private_key.pem \
-  --public-key runtime/license/public_key.pem
-```
-
-读取机器 ID（Linux）：
-```bash
-cat /etc/machine-id
-```
-
-签发 license：
-```bash
-python3 scripts/license_tool.py sign \
-  --private-key runtime/license/private_key.pem \
-  --subject customer_a \
-  --machine-id "$(cat /etc/machine-id)" \
-  --expires-at 2027-12-31T23:59:59Z \
-  --output runtime/license/license.json
-```
-
-启用校验（compose 环境变量）：
-```yaml
-ALERT_LICENSE_ENABLED: "true"
-ALERT_LICENSE_PATH: /root/.ai_alerting/license/license.json
-ALERT_LICENSE_PUBLIC_KEY_PATH: /root/.ai_alerting/license/public_key.pem
-ALERT_LICENSE_ALLOW_HOSTNAME_FALLBACK: "false"
-```
-
-说明：
-- `docker-compose` 只能编排和传配置，无法单独实现“代码加密”。
-- 代码保护需在镜像构建阶段完成（如 `Dockerfile.protected` 的 PyArmor 流程）。
-- 更详细的威胁模型、流程和运维建议见：`docs/PROTECTION.md`。
-
-## 5. 配置损坏恢复（严格模式）
+## 4. 配置损坏恢复（严格模式）
 默认 `ALERT_CONFIG_STRICT=true`，`runtime/config.json` 解析失败会阻止启动。
 
 应急恢复步骤：
@@ -135,7 +82,7 @@ ALERT_LICENSE_ALLOW_HOSTNAME_FALLBACK: "false"
 2. 修复 `runtime/config.json` 后恢复 `ALERT_CONFIG_STRICT=true`。
 3. 重启服务并确认配置已生效。
 
-## 6. 启动参数
+## 5. 启动参数
 
 ```bash
 python3 main.py --host 0.0.0.0 --port 8011 --workers 4
@@ -153,7 +100,7 @@ python3 main.py --host 0.0.0.0 --port 8011 --workers 4
 
 优雅停机：服务接收到 SIGTERM 后有 15 秒窗口处理已接受的请求，随后停止后台 worker 线程。
 
-## 7. 生产运行建议
+## 6. 生产运行建议
 - 使用 `/healthz` 与 `/readyz` 作为存活/就绪探针。
 - 采集 `/metrics` 到 Prometheus 并配置告警。
 - 启用 `ALERT_LOG_FORMAT=json` 将日志对接 ELK/Loki 等日志聚合系统。

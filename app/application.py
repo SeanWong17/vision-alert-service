@@ -15,9 +15,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.alerting import get_runtime
 from app.common.errors import AlertingError
-from app.common.license import LicenseGuard
 from app.common.metrics import metrics
-from app.common.settings import load_license_settings
 from app.http import router
 from app.common.logging import logger
 
@@ -25,19 +23,6 @@ from app.common.logging import logger
 @asynccontextmanager
 async def app_lifespan(_app: FastAPI):
     """应用生命周期钩子：启动时拉起 worker，退出时安全关闭。"""
-
-    license_settings = load_license_settings()
-    if license_settings.enabled:
-        # 启动期先做一次强制校验，后续由中间件按间隔复查。
-        guard = LicenseGuard(license_settings)
-        ok, err = guard.ensure_valid(force=True)
-        if not ok:
-            raise RuntimeError(f"license validation failed: {err}")
-        if err:
-            logger.warning("license validation warning: %s", err)
-        _app.state.license_guard = guard
-    else:
-        _app.state.license_guard = None
 
     runtime = get_runtime()
     # 在启动阶段预热模型，将模型加载延迟从首次请求移到服务器启动时。
@@ -67,17 +52,6 @@ def create_app() -> FastAPI:
         request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
         request.state.request_id = request_id
         path = request.url.path
-        guard = getattr(app.state, "license_guard", None)
-        if guard is not None:
-            ok, _err = guard.ensure_valid(force=False)
-            if not ok:
-                response = JSONResponse(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    content={"message": "license validation failed", "status": False, "requestId": request_id},
-                )
-                response.headers["X-Request-ID"] = request_id
-                metrics.observe_http(request.method, path, response.status_code, 0.0)
-                return response
 
         start = time.time()
         try:
@@ -115,7 +89,6 @@ def create_app() -> FastAPI:
         runtime = get_runtime()
         worker = runtime.get("worker")
         store = runtime.get("store")
-        guard = getattr(app.state, "license_guard", None)
 
         worker_running = worker.is_running() if worker is not None and hasattr(worker, "is_running") else True
         inflight = worker.inflight_tasks() if worker is not None and hasattr(worker, "inflight_tasks") else 0
@@ -128,10 +101,6 @@ def create_app() -> FastAPI:
             except Exception:
                 redis_ok = False
 
-        license_ok = True
-        if guard is not None:
-            license_ok, _ = guard.ensure_valid(force=False)
-
         queue_length = 0
         if store is not None and hasattr(store, "queue_length"):
             try:
@@ -139,14 +108,13 @@ def create_app() -> FastAPI:
             except Exception:
                 queue_length = -1
 
-        ready = worker_running and redis_ok and license_ok
+        ready = worker_running and redis_ok
         body = {
             "status": "ready" if ready else "not_ready",
             "workerRunning": worker_running,
             "inflightTasks": inflight,
             "storageMode": storage_mode,
             "redisOk": redis_ok,
-            "licenseOk": license_ok,
             "queueLength": queue_length,
             "timestamp": int(time.time() * 1000),
         }

@@ -41,8 +41,8 @@
     "detector_device": "cpu",
     "__comment_segmentor_device": "分割模型设备（例如 cuda:0/cpu）",
     "segmentor_device": "cpu",
-    "__comment_segmentor_water_class_ids": "分割结果中代表“水面”的类别 ID 列表（如 ADE20K 的 water 为 21）",
-    "segmentor_water_class_ids": [21],
+    "__comment_segmentor_target_class_ids": "分割结果中目标分割类别 ID 列表（如 ADE20K 的 water 为 21）",
+    "segmentor_target_class_ids": [21],
     "__comment_queue_name": "异步任务队列名（Redis list）",
     "queue_name": "alert:queue:pending",
     "__comment_pending_key_prefix": "待处理任务快照哈希前缀",
@@ -69,10 +69,10 @@
     "default_limit": 1,
     "__comment_roi_default": "默认 ROI；[-1,-1,-1,-1] 表示全图",
     "roi_default": [-1, -1, -1, -1],
-    "__comment_near_water_distance_px": "近水判定距离阈值（像素）",
-    "near_water_distance_px": 24,
-    "__comment_in_water_overlap_ratio": "入水判定重叠比例阈值",
-    "in_water_overlap_ratio": 0.08,
+    "__comment_near_segment_distance_px": "近区域判定距离阈值（像素）",
+    "near_segment_distance_px": 24,
+    "__comment_in_segment_overlap_ratio": "区域内判定重叠比例阈值",
+    "in_segment_overlap_ratio": 0.08,
     "__comment_worker_poll_seconds": "异步 worker 空轮询间隔（秒）",
     "worker_poll_seconds": 0.05,
     "__comment_worker_threads": "异步 worker 线程数",
@@ -83,22 +83,5 @@
     "dead_letter_queue": "alert:dead_letter",
     "__comment_dead_letter_maxlen": "死信队列保留条数上限",
     "dead_letter_maxlen": 1000
-  },
-
-  "license": {
-    "__comment_enabled": "是否启用启动期 license 校验",
-    "enabled": false,
-    "__comment_license_path": "license 文件路径（容器内路径）",
-    "license_path": "/root/.ai_alerting/license/license.json",
-    "__comment_public_key_path": "Ed25519 公钥路径（容器内路径）",
-    "public_key_path": "/root/.ai_alerting/license/public_key.pem",
-    "__comment_fail_open": "校验失败时是否放行启动（true=放行，false=阻止启动）",
-    "fail_open": false,
-    "__comment_require_machine_binding": "是否强制设备绑定（校验 machineId）",
-    "require_machine_binding": true,
-    "__comment_allow_hostname_fallback": "当 machine-id 缺失时是否回退 HOSTNAME（默认 false，更安全）",
-    "allow_hostname_fallback": false,
-    "__comment_check_interval_seconds": "运行期 license 复查间隔（秒）",
-    "check_interval_seconds": 300
   }
 }
