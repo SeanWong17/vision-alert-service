@@ -15,7 +15,7 @@ import os.path as op
 from dataclasses import dataclass
 from threading import Lock
 
-from pydantic import BaseModel
+from pydantic import AliasChoices, BaseModel, Field
 
 HOME_PATH = op.expanduser("~")
 APP_HOME = op.join(HOME_PATH, ".ai_alerting")
@@ -81,7 +81,10 @@ class AlertConfig(BaseModel):
     detector_iou: float = 0.45
     detector_device: str = "0"
     segmentor_device: str = "cuda:0"
-    segmentor_target_class_ids: tuple[int, ...] = (1,)
+    segmentor_target_class_ids: tuple[int, ...] = Field(
+        default=(21,),
+        validation_alias=AliasChoices("segmentor_target_class_ids", "segmentor_water_class_ids"),
+    )
     queue_name: str = "alert:queue:pending"
     pending_key_prefix: str = "alert:pending"
     result_key_prefix: str = "alert:result"
@@ -197,7 +200,7 @@ class AlertSettings:
     detector_iou: float = 0.45
     detector_device: str = "0"
     segmentor_device: str = "cuda:0"
-    segmentor_target_class_ids: tuple[int, ...] = (1,)
+    segmentor_target_class_ids: tuple[int, ...] = (21,)
     queue_name: str = "alert:queue:pending"
     pending_key_prefix: str = "alert:pending"
     result_key_prefix: str = "alert:result"

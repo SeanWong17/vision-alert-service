@@ -502,6 +502,34 @@ class TestLoadAlertSettings(unittest.TestCase):
         finally:
             os.unlink(tmp_path)
 
+    def test_loads_legacy_segmentor_water_class_ids_alias(self):
+        """兼容旧配置字段 segmentor_water_class_ids。"""
+        import app.common.settings as mod
+        from app.common.settings import ConfigLoader
+
+        data = {
+            "alert": {
+                "segmentor_water_class_ids": [21],
+            }
+        }
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as fp:
+            json.dump(data, fp)
+            fp.flush()
+            tmp_path = fp.name
+        try:
+            loader = ConfigLoader(path=tmp_path)
+            original_settings = mod.settings
+            try:
+                mod.settings = loader.config
+                result = mod.load_alert_settings()
+                self.assertEqual(result.segmentor_target_class_ids, (21,))
+            finally:
+                mod.settings = original_settings
+        finally:
+            os.unlink(tmp_path)
+
 
 if __name__ == "__main__":
     unittest.main()
