@@ -40,6 +40,13 @@ async def app_lifespan(_app: FastAPI):
         _app.state.license_guard = None
 
     runtime = get_runtime()
+    # 在启动阶段预热模型，将模型加载延迟从首次请求移到服务器启动时。
+    pipeline = runtime.get("pipeline")
+    if pipeline is not None and hasattr(pipeline, "warm_up"):
+        try:
+            pipeline.warm_up()
+        except Exception as exc:
+            logger.warning("model warm-up skipped: %s", exc)
     runtime["worker"].start()
     try:
         yield

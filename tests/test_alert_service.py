@@ -1,76 +1,20 @@
 """告警服务单元测试（使用假流水线，不依赖真实模型）。"""
 
-import io
 import os
 import tempfile
 import time
 import unittest
 from unittest.mock import patch
 
-
-def _runtime_ready() -> bool:
-    """检测运行依赖是否齐全。"""
-
-    try:
-        import cv2  # noqa: F401
-        import numpy  # noqa: F401
-        return True
-    except Exception:
-        return False
+from tests.conftest import DummyUpload, jpeg_bytes, make_fake_pipeline, runtime_ready
 
 
-@unittest.skipUnless(_runtime_ready(), "runtime deps not installed")
+@unittest.skipUnless(runtime_ready("cv2", "numpy"), "runtime deps not installed")
 class AlertServiceTest(unittest.TestCase):
     """验证服务层同步/异步核心行为。"""
 
     def setUp(self):
         """构造隔离目录、假上传对象和假流水线。"""
-
-        import numpy as np
-
-        from app.alerting.pipeline import InferenceOutcome
-        from app.alerting.schemas import DetectionBox, TaskResult
-
-        class _DummyUpload:
-            """模拟 UploadFile 的最小对象。"""
-
-            def __init__(self, name: str, content: bytes, content_type: str = "image/jpeg"):
-                """初始化上传对象。"""
-
-                self.filename = name
-                self.file = io.BytesIO(content)
-                self.content_type = content_type
-
-        class _FakePipeline:
-            """模拟推理流水线，返回固定结果。"""
-
-            def run(self, image_path, tasks):
-                """返回固定推理产物。"""
-
-                _ = (image_path, tasks)
-                return InferenceOutcome(
-                    detections=[
-                        DetectionBox(
-                            coordinate=[1, 2, 3, 4],
-                            score=0.9,
-                            tagName="enter_water",
-                            overlapWater=0.2,
-                            distanceToWater=0.0,
-                        )
-                    ],
-                    water_color={"water_ratio": 0.5},
-                    shoreline_points=[[1, 1], [2, 2]],
-                    rendered_image=np.zeros((16, 16, 3), dtype=np.uint8),
-                    image_width=16,
-                    image_height=16,
-                )
-
-            def build_task_results(self, tasks, outcome):
-                """返回固定任务结果。"""
-
-                _ = outcome
-                detail = {"roiResults": [{"targetCount": 1}]}
-                return [TaskResult(id=task.id, reserved="1", detail=detail) for task in tasks]
 
         from app.alerting.schemas import StoredResult
         from app.alerting.service import AlertService
@@ -78,7 +22,6 @@ class AlertServiceTest(unittest.TestCase):
         from app.common.settings import AlertSettings
 
         self.StoredResult = StoredResult
-        self.DummyUpload = _DummyUpload
 
         self.tmp = tempfile.TemporaryDirectory()
         upload_root = os.path.join(self.tmp.name, "upload")
@@ -87,13 +30,7 @@ class AlertServiceTest(unittest.TestCase):
 
         self.store = AlertStore(settings)
         self.store.redis = None
-        self.service = AlertService(settings, self.store, _FakePipeline())
-
-    @staticmethod
-    def _jpeg_bytes(payload_size: int = 32) -> bytes:
-        """构造满足 JPEG 魔数的测试字节流。"""
-
-        return b"\xff\xd8\xff" + (b"x" * max(0, payload_size - 3))
+        self.service = AlertService(settings, self.store, make_fake_pipeline())
 
     def tearDown(self):
         """清理临时目录。"""
@@ -103,7 +40,7 @@ class AlertServiceTest(unittest.TestCase):
     def test_submit_async(self):
         """异步提交后队列长度应增加。"""
 
-        image = self.DummyUpload("cam_1.jpg", self._jpeg_bytes())
+        image = DummyUpload("cam_1.jpg", jpeg_bytes())
         file_upload = {"filename": "cam_1.jpg", "sessionId": "S1"}
         tasks = [{"id": 1, "params": {"limit": 1}}]
 
@@ -114,7 +51,7 @@ class AlertServiceTest(unittest.TestCase):
     def test_analyze_sync(self):
         """同步分析应返回任务结果列表。"""
 
-        image = self.DummyUpload("cam_2.jpg", self._jpeg_bytes(), content_type="image/jpeg")
+        image = DummyUpload("cam_2.jpg", jpeg_bytes(), content_type="image/jpeg")
         tasks = [{"id": 7, "params": {"limit": 0}}]
 
         result = self.service.analyze_sync(image, "cam_2.jpg", tasks)
@@ -135,6 +72,8 @@ class AlertServiceTest(unittest.TestCase):
     def test_submit_async_writes_file_in_chunks(self):
         """上传文件应按固定分块读取，避免一次性读入内存。"""
 
+        from app.alerting.service import CHUNK_SIZE
+
         class _ChunkReadable:
             def __init__(self, data: bytes):
                 self._data = data
@@ -152,7 +91,7 @@ class AlertServiceTest(unittest.TestCase):
 
         payload = b"\xff\xd8\xff" + (b"x" * (2 * 1024 * 1024 + 120))
         stream = _ChunkReadable(payload)
-        upload = self.DummyUpload("cam_3.jpg", b"")
+        upload = DummyUpload("cam_3.jpg", b"")
         upload.file = stream
 
         result = self.service.submit_async(
@@ -165,12 +104,12 @@ class AlertServiceTest(unittest.TestCase):
         saved_path = os.path.join(self.service.settings.upload_root, "cam", "cam_3.jpg")
         self.assertTrue(os.path.exists(saved_path))
         self.assertEqual(os.path.getsize(saved_path), len(payload))
-        self.assertTrue(all(size == 1024 * 1024 for size in stream.read_sizes))
+        self.assertTrue(all(size == CHUNK_SIZE for size in stream.read_sizes))
 
     def test_submit_async_sanitizes_filename(self):
         """异步上传应净化文件名，避免路径穿越。"""
 
-        image = self.DummyUpload("origin.jpg", self._jpeg_bytes())
+        image = DummyUpload("origin.jpg", jpeg_bytes())
         result = self.service.submit_async(
             image,
             {"filename": "../unsafe name?.jpg", "sessionId": "S4"},
@@ -187,7 +126,7 @@ class AlertServiceTest(unittest.TestCase):
 
         from app.common.errors import ApiError
 
-        image = self.DummyUpload("x.txt", b"not-image", content_type="text/plain")
+        image = DummyUpload("x.txt", b"not-image", content_type="text/plain")
         with self.assertRaises(ApiError):
             self.service.submit_async(
                 image,
@@ -201,7 +140,7 @@ class AlertServiceTest(unittest.TestCase):
         from app.common.errors import AlertingError
 
         self.service.settings.upload_max_bytes = 16
-        image = self.DummyUpload("cam_oversize.jpg", self._jpeg_bytes(64), content_type="image/jpeg")
+        image = DummyUpload("cam_oversize.jpg", jpeg_bytes(64), content_type="image/jpeg")
 
         with self.assertRaises(AlertingError):
             self.service.submit_async(
@@ -275,7 +214,7 @@ class AlertServiceTest(unittest.TestCase):
     def test_analyze_sync_raises_when_result_image_write_fails(self):
         """结果图保存失败时应抛异常，避免静默成功。"""
 
-        image = self.DummyUpload("cam_4.jpg", self._jpeg_bytes(), content_type="image/jpeg")
+        image = DummyUpload("cam_4.jpg", jpeg_bytes(), content_type="image/jpeg")
         tasks = [{"id": 8, "params": {"limit": 0}}]
         with patch("app.alerting.service.cv2.imwrite", return_value=False):
             with self.assertRaises(RuntimeError):
@@ -286,7 +225,7 @@ class AlertServiceTest(unittest.TestCase):
 
         from app.common.errors import ApiError
 
-        image = self.DummyUpload("fake.jpg", b"not-an-image", content_type="image/jpeg")
+        image = DummyUpload("fake.jpg", b"not-an-image", content_type="image/jpeg")
         with self.assertRaises(ApiError):
             self.service.submit_async(
                 image,

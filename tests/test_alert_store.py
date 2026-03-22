@@ -112,6 +112,29 @@ class AlertStoreTest(unittest.TestCase):
 
         import json
 
+        class _FakePipeline:
+            """模拟 Redis pipeline，直接委派命令到 _FakeRedis。"""
+
+            def __init__(self, redis):
+                self._redis = redis
+                self._calls = []
+
+            def __getattr__(self, name):
+                method = getattr(self._redis, name)
+                def wrapper(*args, **kwargs):
+                    self._calls.append((name, args, kwargs))
+                    return method(*args, **kwargs)
+                return wrapper
+
+            def execute(self):
+                return [None] * len(self._calls)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                pass
+
         class _FakeRedis:
             def __init__(self):
                 self.xgroup_create_called = 0
@@ -122,6 +145,9 @@ class AlertStoreTest(unittest.TestCase):
                 self.hdel_calls = []
                 self.xreadgroup_calls = []
                 self.xautoclaim_calls = []
+
+            def pipeline(self, transaction=True):
+                return _FakePipeline(self)
 
             def xgroup_create(self, _stream, _group, id="0", mkstream=True):
                 _ = (id, mkstream)

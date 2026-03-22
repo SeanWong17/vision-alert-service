@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from dataclasses import dataclass
 from threading import Lock
 from typing import TYPE_CHECKING, Any, Dict, List, Tuple
@@ -13,6 +14,7 @@ import numpy as np
 from app.alerting.config import AlertSettings
 from app.alerting.schemas import AlarmTask, DetectionBox, RoiRule, TaskResult
 from app.common.logging import logger
+from app.common.metrics import metrics
 if TYPE_CHECKING:
     from app.adapters.vision.detector import YoloDetector
     from app.adapters.vision.segmentor import MmsegSegmentor
@@ -50,6 +52,11 @@ class AlertPipeline:
             os.path.join(root, self.settings.seg_config_name),
             os.path.join(root, self.settings.seg_model_name),
         )
+
+    def warm_up(self) -> None:
+        """在服务启动阶段预加载模型，消除首次请求的冷启动延迟。"""
+
+        self._ensure_models()
 
     def _ensure_models(self) -> None:
         """懒加载模型，避免进程启动时阻塞。"""
@@ -231,7 +238,7 @@ class AlertPipeline:
                 continue
             if not self._bbox_intersects_roi(det.coordinate, roi):
                 continue
-            targets.append(det.dict())
+            targets.append(det.model_dump())
 
         return targets
 
@@ -272,24 +279,74 @@ class AlertPipeline:
     def run(self, image_path: str, tasks: List[AlarmTask]) -> InferenceOutcome:
         """执行一次完整推理流程。"""
 
+        t_start = time.monotonic()
         self._ensure_models()
         image = cv2.imread(image_path)
         if image is None:
             raise RuntimeError(f"failed to read image: {image_path}")
 
+        t0 = time.monotonic()
         raw_det = self._detector.predict_boxes(image)
+        t1 = time.monotonic()
+        metrics.observe_inference("detection", t1 - t0)
+
         water_mask = self._segmentor.predict_mask(image)
+        t2 = time.monotonic()
+        metrics.observe_inference("segmentation", t2 - t1)
 
         detections = self._to_detection_boxes(raw_det, water_mask)
 
         water_mask_binary = (water_mask > 0).astype(np.uint8)
         shoreline = self._extract_shoreline(water_mask_binary)
         height, width = image.shape[:2]
+        rendered = self._draw_render(image, water_mask_binary, detections, shoreline)
+        t3 = time.monotonic()
+        metrics.observe_inference("postprocess", t3 - t2)
+        metrics.observe_inference("total", t3 - t_start)
+
         return InferenceOutcome(
             detections=detections,
             water_color=self._build_water_color(image, water_mask_binary),
             shoreline_points=shoreline,
-            rendered_image=self._draw_render(image, water_mask_binary, detections, shoreline),
+            rendered_image=rendered,
+            image_width=width,
+            image_height=height,
+        )
+
+    def run_from_buffer(self, image_bytes: bytes, tasks: List[AlarmTask]) -> InferenceOutcome:
+        """从内存字节流执行推理，避免写盘再读取的 I/O 往返。"""
+
+        t_start = time.monotonic()
+        self._ensure_models()
+        buf = np.frombuffer(image_bytes, dtype=np.uint8)
+        image = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+        if image is None:
+            raise RuntimeError("failed to decode image from buffer")
+
+        t0 = time.monotonic()
+        raw_det = self._detector.predict_boxes(image)
+        t1 = time.monotonic()
+        metrics.observe_inference("detection", t1 - t0)
+
+        water_mask = self._segmentor.predict_mask(image)
+        t2 = time.monotonic()
+        metrics.observe_inference("segmentation", t2 - t1)
+
+        detections = self._to_detection_boxes(raw_det, water_mask)
+
+        water_mask_binary = (water_mask > 0).astype(np.uint8)
+        shoreline = self._extract_shoreline(water_mask_binary)
+        height, width = image.shape[:2]
+        rendered = self._draw_render(image, water_mask_binary, detections, shoreline)
+        t3 = time.monotonic()
+        metrics.observe_inference("postprocess", t3 - t2)
+        metrics.observe_inference("total", t3 - t_start)
+
+        return InferenceOutcome(
+            detections=detections,
+            water_color=self._build_water_color(image, water_mask_binary),
+            shoreline_points=shoreline,
+            rendered_image=rendered,
             image_width=width,
             image_height=height,
         )

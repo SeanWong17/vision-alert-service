@@ -146,10 +146,14 @@ Base URL: `http://{host}:8011/api`
 ## 7. 指标导出
 - 方法：`GET /metrics`（注意：不带 `/api` 前缀）
 - 格式：Prometheus exposition text
-- 覆盖指标（当前）：
-  - `http_requests_total`
-  - `http_request_duration_seconds`（histogram）
-  - `async_tasks_total`
-  - `alert_queue_length`
-  - `alert_worker_inflight`
-  - `alert_dead_letter_size`
+- 覆盖指标：
+
+| 指标名 | 类型 | 说明 |
+|--------|------|------|
+| `http_requests_total` | Counter | 按 `path`、`method`、`status` 分组 |
+| `http_request_duration_seconds` | Histogram | 请求端到端延迟（秒） |
+| `async_tasks_total` | Counter | 按 `outcome`（`success`/`failure`）分组 |
+| `alert_queue_length` | Gauge | 当前待处理队列深度 |
+| `alert_worker_inflight` | Gauge | 正在推理的并发任务数 |
+| `alert_dead_letter_size` | Gauge | 死信队列大小 |
+| `inference_duration_seconds` | Histogram | 推理各阶段耗时，按 `stage` 分组（`detection`/`segmentation`/`postprocess`/`total`） |

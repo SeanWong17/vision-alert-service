@@ -20,10 +20,11 @@ class UploadRouteErrorTest(unittest.TestCase):
     """验证上传接口错误映射行为。"""
 
     def _new_client(self, service):
-        """构造注入假 runtime 的测试客户端。"""
+        """构造注入假 runtime 的测试客户端，使用 dependency_overrides。"""
 
         from fastapi.testclient import TestClient
         from app.application import create_app
+        from app.alerting import _get_service
 
         class _Worker:
             def start(self):
@@ -47,14 +48,13 @@ class UploadRouteErrorTest(unittest.TestCase):
             def dead_letter_size(self):
                 return 0
 
-        runtime = {"service": service, "worker": _Worker(), "store": _Store()}
+        runtime = {"service": service, "worker": _Worker(), "store": _Store(), "pipeline": None}
         patcher_app = patch("app.application.get_runtime", return_value=runtime)
-        patcher_routes = patch("app.http.routes.get_runtime", return_value=runtime)
         patcher_app.start()
-        patcher_routes.start()
         self.addCleanup(patcher_app.stop)
-        self.addCleanup(patcher_routes.stop)
         app = create_app()
+        # 使用 FastAPI dependency_overrides 替代对路由模块的 patch
+        app.dependency_overrides[_get_service] = lambda: service
         return TestClient(app, raise_server_exceptions=False)
 
     def test_upload_alerting_error_returns_400(self):

@@ -18,6 +18,8 @@ class DetectionBox(BaseModel):
     overlapWater: float = 0.0
     distanceToWater: float = 0.0
 
+    model_config = {"populate_by_name": True}
+
 
 class RoiRule(BaseModel):
     """单个 ROI 的告警规则。"""
@@ -26,6 +28,8 @@ class RoiRule(BaseModel):
     coordinate: List[int] = Field(default_factory=lambda: [-1, -1, -1, -1])
     classes: List[str] = Field(default_factory=list)
     confThreshold: float = 0.5
+
+    model_config = {"populate_by_name": True}
 
 
 class AlarmTask(BaseModel):
@@ -51,6 +55,8 @@ class UploadEnvelope(BaseModel):
     timestamp: int = Field(default_factory=lambda: int(time.time() * 1000))
     fileuuid: Optional[str] = None
 
+    model_config = {"populate_by_name": True}
+
 
 class QueueTask(BaseModel):
     """异步队列中的任务载荷。"""
@@ -70,9 +76,13 @@ class StoredResult(BaseModel):
     results: List[Dict[str, Any]] = Field(default_factory=list)
     timestamp: int = Field(default_factory=lambda: int(time.time() * 1000))
 
+    model_config = {"populate_by_name": True}
+
 
 class ConfirmPayload(BaseModel):
     """结果确认接口的现代请求体。"""
 
     sessionId: str = ""
     imageIds: List[str] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}

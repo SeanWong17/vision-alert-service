@@ -12,6 +12,10 @@
   - `alert_queue_length`
   - `alert_worker_inflight`
   - `alert_dead_letter_size`
+- 推理性能面板：
+  - `histogram_quantile(0.95, sum(rate(inference_duration_seconds_bucket{stage="total"}[5m])) by (le))`
+  - `histogram_quantile(0.95, sum(rate(inference_duration_seconds_bucket{stage="detection"}[5m])) by (le))`
+  - `histogram_quantile(0.95, sum(rate(inference_duration_seconds_bucket{stage="segmentation"}[5m])) by (le))`
 
 ## 2. 告警阈值（起步版）
 - 可用性：

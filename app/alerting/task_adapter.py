@@ -126,7 +126,7 @@ def normalize_tasks(raw_tasks: Any, settings: AlertSettings) -> List[AlarmTask]:
             # 无 ROI 时默认全图，类别为全部，阈值 0.5。
             normalized_rois = [RoiRule(coordinate=list(settings.roi_default), classes=[], confThreshold=0.5)]
 
-        params["rois"] = [rule.dict() for rule in normalized_rois]
+        params["rois"] = [rule.model_dump() for rule in normalized_rois]
         normalized.append(AlarmTask(**candidate))
 
     return normalized

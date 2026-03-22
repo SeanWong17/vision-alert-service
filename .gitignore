@@ -6,3 +6,34 @@ __pycache__/
 venv/
 .env
 .DS_Store
+
+# Runtime data — not committed (models, images, logs, config)
+runtime/models/
+runtime/images/
+runtime/log/
+runtime/config.json
+runtime/license/
+
+# Model weights and compiled artefacts
+*.pt
+*.pth
+*.onnx
+*.engine
+*.wts
+
+# Test/build artefacts
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+dist/
+build/
+*.egg-info/
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+*~

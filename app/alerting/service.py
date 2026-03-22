@@ -22,6 +22,11 @@ from app.common.errors import AlertingError, ApiError
 from app.common.logging import logger
 from app.common.metrics import metrics
 
+# 文件 I/O 常量
+CHUNK_SIZE = 1024 * 1024  # 1MB 分块读取
+JPEG_MAGIC = b"\xff\xd8\xff"
+PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+
 
 class AlertService:
     """封装上传落盘、推理调用、结果存储与查询确认等业务操作。"""
@@ -64,9 +69,9 @@ class AlertService:
         """基于文件头魔数识别图片类型。"""
 
         head = bytes(content_head or b"")
-        if len(head) >= 3 and head[0:3] == b"\xff\xd8\xff":
+        if len(head) >= len(JPEG_MAGIC) and head[:len(JPEG_MAGIC)] == JPEG_MAGIC:
             return "jpeg"
-        if len(head) >= 8 and head[0:8] == b"\x89PNG\r\n\x1a\n":
+        if len(head) >= len(PNG_MAGIC) and head[:len(PNG_MAGIC)] == PNG_MAGIC:
             return "png"
         return ""
 
@@ -146,7 +151,7 @@ class AlertService:
         file_path = os.path.join(directory, file_name)
         total = 0
         try:
-            first_chunk = file_obj.file.read(1024 * 1024)
+            first_chunk = file_obj.file.read(CHUNK_SIZE)
             if not first_chunk:
                 raise AlertingError(message="empty file")
             self._validate_upload_magic(file_obj, first_chunk)
@@ -157,7 +162,7 @@ class AlertService:
                     raise AlertingError(message="file too large")
                 fh.write(first_chunk)
                 while True:
-                    chunk = file_obj.file.read(1024 * 1024)
+                    chunk = file_obj.file.read(CHUNK_SIZE)
                     if not chunk:
                         break
                     total += len(chunk)
@@ -225,19 +230,41 @@ class AlertService:
         return {"code": 0, "message": "Success", "sessionId": envelope.sessionId, "imageId": image_id}
 
     def analyze_sync(self, image: UploadFile, file_name: str, tasks_raw: Any) -> List[Dict[str, Any]]:
-        """同步推理：上传即分析并返回任务结果。"""
+        """同步推理：上传即分析并返回任务结果。
+
+        优化：先读取全部字节到内存进行校验和推理，仅在需要保存结果图时落盘。
+        """
 
         self._validate_upload_type(image)
         safe_filename = self._sanitize_filename(file_name)
-
         tasks = normalize_tasks(tasks_raw, self.settings)
-        file_path = self._save_upload_file(safe_filename, image)
-        outcome = self.pipeline.run(file_path, tasks)
+
+        # 将上传内容一次性读入内存，避免 write-then-read 的磁盘往返。
+        image_bytes = image.file.read()
+        if not image_bytes:
+            raise AlertingError(message="empty file")
+        if len(image_bytes) > self.settings.upload_max_bytes:
+            raise AlertingError(message="file too large")
+        self._validate_upload_magic(image, image_bytes[:8])
+
+        # 直接从内存 buffer 执行推理（如果流水线支持）。
+        if hasattr(self.pipeline, "run_from_buffer"):
+            outcome = self.pipeline.run_from_buffer(image_bytes, tasks)
+        else:
+            # 回退：写磁盘再读取（兼容无 run_from_buffer 的假流水线）。
+            position = self._position_from_filename(safe_filename)
+            directory = os.path.join(self.settings.upload_root, position)
+            os.makedirs(directory, exist_ok=True)
+            file_path = os.path.join(directory, safe_filename)
+            with open(file_path, "wb") as fh:
+                fh.write(image_bytes)
+            outcome = self.pipeline.run(file_path, tasks)
+
         task_results = self.pipeline.build_task_results(tasks, outcome)
         has_alarm = any(item.reserved == "1" for item in task_results)
 
         self._save_result_image(safe_filename, outcome.rendered_image, has_alarm=has_alarm)
-        return [item.dict() for item in task_results]
+        return [item.model_dump() for item in task_results]
 
     def process_async_task(self, task: QueueTask) -> None:
         """消费单个异步任务并写回结果存储。"""
@@ -250,7 +277,7 @@ class AlertService:
         try:
             outcome = self.pipeline.run(task.file_path, task.tasks)
             task_results = self.pipeline.build_task_results(task.tasks, outcome)
-            results = [item.dict() for item in task_results]
+            results = [item.model_dump() for item in task_results]
             has_alarm = any(item.reserved == "1" for item in task_results)
 
             self._save_result_image(task.file_name, outcome.rendered_image, has_alarm=has_alarm)

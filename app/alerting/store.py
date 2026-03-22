@@ -93,10 +93,13 @@ class AlertStore:
     def enqueue(self, task: QueueTask) -> None:
         """写入 pending 与队列。"""
 
-        payload = task.json(ensure_ascii=False)
+        payload = task.model_dump_json()
         if self.redis:
-            self.redis.hset(self._pending_key(task.session_id), task.image_id, payload)
-            self.redis.rpush(self.settings.queue_name, payload)
+            # 使用 pipeline 将两次 Redis 操作合并为一次网络往返。
+            pipe = self.redis.pipeline(transaction=False)
+            pipe.hset(self._pending_key(task.session_id), task.image_id, payload)
+            pipe.rpush(self.settings.queue_name, payload)
+            pipe.execute()
             return
 
         with self._lock:
@@ -145,10 +148,13 @@ class AlertStore:
     def save_result(self, session_id: str, image_id: str, result: StoredResult) -> None:
         """保存处理结果并移除 pending。"""
 
-        payload = result.json(ensure_ascii=False)
+        payload = result.model_dump_json()
         if self.redis:
-            self.redis.xadd(self._result_stream_key(session_id), {"imageId": image_id, "payload": payload})
-            self.redis.hdel(self._pending_key(session_id), image_id)
+            # 使用 pipeline 将 XADD + HDEL 合并为一次网络往返。
+            pipe = self.redis.pipeline(transaction=False)
+            pipe.xadd(self._result_stream_key(session_id), {"imageId": image_id, "payload": payload})
+            pipe.hdel(self._pending_key(session_id), image_id)
+            pipe.execute()
             return
 
         with self._lock:
@@ -261,9 +267,11 @@ class AlertStore:
             valid_entry_ids = [entry_id for entry_id in entry_ids if entry_id]
 
             if valid_entry_ids:
-                # 先 ACK 再删除消息体，避免 PEL 污染。
-                self.redis.xack(stream_key, group_name, *valid_entry_ids)
-                self.redis.xdel(stream_key, *valid_entry_ids)
+                # 使用 pipeline 将 ACK + DEL 合并为一次网络往返。
+                pipe = self.redis.pipeline(transaction=False)
+                pipe.xack(stream_key, group_name, *valid_entry_ids)
+                pipe.xdel(stream_key, *valid_entry_ids)
+                pipe.execute()
 
             self.redis.hdel(ack_key, *image_ids)
             return
@@ -292,15 +300,18 @@ class AlertStore:
                 "imageId": task.image_id,
                 "fileName": task.file_name,
                 "filePath": task.file_path,
-                "tasks": [item.dict() for item in task.tasks],
+                "tasks": [item.model_dump() for item in task.tasks],
                 "reason": str(reason),
                 "timestamp": int(time.time() * 1000),
             },
             ensure_ascii=False,
         )
         if self.redis:
-            self.redis.lpush(self._dead_letter_queue(), payload)
-            self.redis.ltrim(self._dead_letter_queue(), 0, self.settings.dead_letter_maxlen - 1)
+            # 使用 pipeline 将 LPUSH + LTRIM 合并为一次网络往返。
+            pipe = self.redis.pipeline(transaction=False)
+            pipe.lpush(self._dead_letter_queue(), payload)
+            pipe.ltrim(self._dead_letter_queue(), 0, self.settings.dead_letter_maxlen - 1)
+            pipe.execute()
             return
 
         with self._lock:

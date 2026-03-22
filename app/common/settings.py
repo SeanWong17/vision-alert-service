@@ -177,7 +177,7 @@ class ConfigLoader:
         if parent:
             os.makedirs(parent, exist_ok=True)
         with open(target, "w", encoding="utf-8") as fp:
-            json.dump(self.config.dict(), fp, indent=2, ensure_ascii=False)
+            json.dump(self.config.model_dump(), fp, indent=2, ensure_ascii=False)
             fp.write("\n")
 
     def reset(self) -> None:

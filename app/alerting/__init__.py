@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from threading import Lock
+from typing import Any, Dict
 
 from app.alerting.config import load_alert_settings
 from app.alerting.pipeline import AlertPipeline
@@ -44,3 +45,31 @@ def get_runtime() -> dict:
         }
 
     return _runtime
+
+
+def reset_runtime() -> None:
+    """重置运行时单例（仅用于测试）。"""
+
+    global _runtime
+    with _runtime_lock:
+        _runtime = None
+
+
+# ---- FastAPI 依赖注入 ----
+
+def _get_service() -> AlertService:
+    """FastAPI Depends() 可用的服务依赖。"""
+
+    return get_runtime()["service"]
+
+
+def _get_store() -> AlertStore:
+    """FastAPI Depends() 可用的存储依赖。"""
+
+    return get_runtime()["store"]
+
+
+def _get_worker() -> AlertWorker:
+    """FastAPI Depends() 可用的 worker 依赖。"""
+
+    return get_runtime()["worker"]
