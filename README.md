@@ -16,7 +16,7 @@
 - 把“模型输出”进一步转译成业务语义，例如区域进入、临近告警、结果确认和回溯
 - 体现我在 Python 后端、CV 服务封装、Docker 化、测试与可运维性上的一部分能力
 
-作为作品集的一部分，下面这些能力面更容易被这套工程化实践直观体现：
+下面这些能力面更容易被这套工程化实践直观体现：
 
 - **CV 工程化**：把 YOLO / MMSeg 推理链路转成稳定服务，而不是停留在 notebook
 - **后端架构设计**：分层组织 `adapter / service / pipeline / worker / http`
@@ -258,9 +258,7 @@ docker run --rm -v "$(pwd)/runtime:/root/.ai_alerting" ai-alerting:test
 | [SECURITY.md](SECURITY.md) | 漏洞报告与安全披露流程 |
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 社区协作行为基线 |
 
-## 作为作品集项目，我希望它体现什么
-
-如果你在看我的作品集，这个项目主要想体现以下几点：
+## 我希望它体现的能力
 
 - 我不只会“调模型”，也会把模型能力包装成可部署、可观测、可维护的服务
 - 我关注从算法结果到业务结果之间的落地层设计
