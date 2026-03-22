@@ -1,10 +1,132 @@
 # AI Alerting Service
 
-视觉告警服务：YOLO 目标检测 + MMSeg 语义分割，对指定类别的分割结果结合检测进行后处理，支持同步/异步双模式推理。
+视觉告警服务：基于 YOLO 目标检测与 MMSeg 语义分割，面向“区域入侵 / 危险区域接近”类场景提供同步与异步双模式推理能力。
 
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 
+![AI Alerting demo](docs/assets/portfolio-demo-alert-result.png)
+
+上图展示了项目的一个典型输出：服务先做目标检测，再结合语义分割掩膜对指定类别做业务后处理，将目标标记为 `enter_segment` 或 `near_segment`，而不是只给出通用检测框。
+
+## 项目定位
+
+这是一个偏工程落地的计算机视觉后端项目，而不是单纯的模型推理脚本。它强调的是：
+
+- 将检测模型、分割模型、HTTP API、异步队列、结果存储和运维指标整合成一个可运行服务
+- 把“模型输出”进一步转译成业务语义，例如区域进入、临近告警、结果确认和回溯
+- 体现我在 Python 后端、CV 服务封装、Docker 化、测试与可运维性上的一部分能力
+
+如果把它作为作品集项目来看，它更适合展示以下能力面：
+
+- **CV 工程化**：把 YOLO / MMSeg 推理链路转成稳定服务，而不是停留在 notebook
+- **后端架构设计**：分层组织 `adapter / service / pipeline / worker / http`
+- **业务抽象**：从检测框和分割掩膜提炼出 `enter_segment` / `near_segment`
+- **工程质量**：配置管理、异常体系、日志、指标、测试、CI、Docker 构建
+- **运维意识**：健康检查、就绪探针、Prometheus 指标、镜像依赖收敛
+
+## 亮点速览
+
+- **双模推理**：支持同步分析接口和异步上传入队接口
+- **检测 + 分割联动**：不是只做 object detection，而是做“检测结果的语义增强”
+- **业务级告警标签**：根据掩膜重叠率和距离输出 `enter_segment` / `near_segment`
+- **零磁盘同步推理**：同步接口支持在内存中完成图片解析与推理，减少 I/O
+- **异步消费链路**：Redis Streams + worker 消费线程 + 结果确认流程
+- **结构化可观测性**：支持 `X-Request-ID`、JSON 日志、Prometheus 指标
+- **开源协作基础**：补齐了贡献指南、安全策略、行为准则和 GitHub 模板
+- **容器化交付**：多阶段 Dockerfile，运行时依赖与测试依赖分离
+
+## 这个项目解决什么问题
+
+很多视觉项目在真实场景里会卡在两个地方：
+
+1. 模型只能离线跑 demo，无法稳定对外提供服务
+2. 检测结果太“原始”，无法直接映射到业务语义
+
+这个项目试图解决的是第二类“最后一公里工程问题”：
+
+- 输入是一张图片和一组任务规则
+- 检测模型找出目标
+- 分割模型识别目标区域
+- 业务后处理把目标与区域关系转成告警标签
+- 服务端以同步或异步形式返回标准化结果
+
+## Demo 图说明
+
+从上面的结果图可以看到：
+
+- `enter_segment`：检测目标与目标分割区域达到进入阈值
+- `near_segment`：检测目标未真正进入，但已与目标区域相交或足够接近
+- 其他目标仍保留原始检测类别，如 `dog`、`bench`、`bottle`
+
+这意味着系统输出不再只是“识别到了 person”，而是“这个 person 与目标区域处于什么业务关系”。
+
+## 系统架构
+
+```text
+Client
+  -> FastAPI HTTP layer
+    -> AlertService
+      -> AlertPipeline
+        -> Detector (YOLO)
+        -> Segmentor (MMSeg)
+      -> AlertStore
+        -> Memory / Redis
+      -> AlertWorker
+        -> Async task consumption
+```
+
+调用链拆分在职责上比较明确：
+
+- `app/http`：只负责参数接收、依赖注入、返回响应
+- `app/alerting/service.py`：业务编排、上传落盘、同步/异步流程控制
+- `app/alerting/pipeline.py`：检测、分割、结果后处理与结果图绘制
+- `app/alerting/store.py`：队列、pending、结果和确认逻辑
+- `app/alerting/worker.py`：后台消费线程与并发控制
+- `app/common`：配置、日志、错误码、指标
+- `app/adapters`：Redis 与视觉模型适配层
+
+## 核心能力拆解
+
+### 1. 视觉推理与业务后处理
+
+- 检测模型先给出目标框和类别
+- 分割模型对整图输出目标掩膜
+- 配置项 `segmentor_target_class_ids` 决定关注哪些分割类别
+- 配置项 `segment_postprocess_class_names` 决定哪些检测类别参与业务后处理
+- 根据掩膜重叠率和最短距离，输出 `enter_segment` / `near_segment`
+
+这部分能力主要体现在：
+
+- 不把模型结果生硬返回，而是结合业务规则做领域语义抽象
+- 通过配置而非硬编码控制目标分割类别、处理类别和阈值
+
+### 2. 服务端工程设计
+
+- FastAPI 应用工厂模式，统一注册中间件、异常处理器、生命周期
+- 同步接口支持即时返回，异步接口支持上传、入队、拉取结果、确认结果
+- Worker 支持并发数与 inflight 上限控制，避免后台消费无限制膨胀
+- Store 同时兼容内存模式与 Redis 模式，便于本地开发和生产部署切换
+
+### 3. 可观测性与稳定性
+
+- `GET /healthz`：进程存活检查
+- `GET /readyz`：就绪检查，包含 worker / redis / queue 状态
+- `GET /metrics`：Prometheus 指标导出
+- 请求耗时、推理耗时、队列长度、死信大小都有可观测输出
+- 支持 `ALERT_LOG_FORMAT=json` 输出结构化日志
+- 支持 `X-Request-ID` 透传，便于串联日志和请求
+
+### 4. 工程质量
+
+- Pydantic v2 配置与模型
+- 明确的错误模型与业务异常封装
+- 单元测试、集成测试、CI 闸门脚本
+- Docker 多阶段构建
+- README、部署文档、运维文档、贡献文档分离
+
 ## 快速开始
+
+### 本地运行
 
 ```bash
 python3 -m pip install -r requirements.txt
@@ -14,104 +136,136 @@ python3 scripts/install_light_models.py --model-root runtime/models --packs nano
 python3 main.py --host 0.0.0.0 --port 8011
 ```
 
-## 文档导航
+默认启动后可访问：
 
-| 文档 | 说明 |
-|------|------|
-| [docs/API.md](docs/API.md) | HTTP 接口规范（请求/响应格式、字段说明） |
-| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | 部署配置、环境变量、Docker |
-| [docs/OPERATIONS.md](docs/OPERATIONS.md) | 运维基线、Prometheus 监控面板、告警阈值 |
-| [docs/CALL_CHAIN.md](docs/CALL_CHAIN.md) | 调用链与架构说明 |
-| [docs/CONTAINER_TEST.md](docs/CONTAINER_TEST.md) | 容器 GPU 测试步骤 |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献流程、提交前检查、PR 约定 |
-| [SECURITY.md](SECURITY.md) | 漏洞报告与安全披露流程 |
-| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 社区协作行为基线 |
+- `http://127.0.0.1:8011/docs`
+- `http://127.0.0.1:8011/healthz`
+- `http://127.0.0.1:8011/readyz`
+- `http://127.0.0.1:8011/metrics`
 
-## 核心特性
+### Docker 运行
 
-- **双模推理**：异步上传入队（Redis Streams + 消费组），同步接口直接返回结果
-- **模型预热**：启动时自动调用 `pipeline.warm_up()`，消除首次请求冷启动延迟（10-30s）
-- **零磁盘同步推理**：`analyze_sync` 全程在内存中处理图片（`cv2.imdecode`），无磁盘 I/O
-- **Redis 批量操作**：入队、保存结果、确认消费均使用 `pipeline` 批量发送，减少 RTT
-- **Pydantic v2**：数据模型全面使用 v2 API（`model_dump`、`model_config`）
-- **结构化日志**：设置 `ALERT_LOG_FORMAT=json` 启用 JSON 格式，适配 ELK/Loki/CloudWatch
-- **推理性能指标**：`inference_duration_seconds` histogram（detection/segmentation/postprocess/total 四个 stage）
-- **FastAPI DI**：路由使用 `Depends()` 注入服务依赖，测试通过 `dependency_overrides` 隔离
+```bash
+cd docker
+docker compose up -d --build
+```
 
-## 配置
+容器运行时会挂载：
 
-- 统一配置文件：`runtime/config.json`（可由 `runtime/config.example.json` 复制）
-- 可用性探针：`GET /healthz`（存活）与 `GET /readyz`（就绪）
-- 追踪头：支持 `X-Request-ID` 透传，便于日志关联
-- 指标导出：`GET /metrics`（Prometheus 文本格式）
+- 宿主 `runtime/`
+- 容器 `/root/.ai_alerting`
+
+## API 概览
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/api/transmission/upload` | `POST` | 异步上传图片并入队 |
+| `/api/transmission/alarm_result` | `GET` | 拉取异步告警结果 |
+| `/api/transmission/result_confirm` | `POST` | 确认并清理结果 |
+| `/api/analysis/danger` | `POST` | 同步推理，直接返回结果 |
+| `/healthz` | `GET` | 存活探针 |
+| `/readyz` | `GET` | 就绪探针 |
+| `/metrics` | `GET` | Prometheus 指标 |
+
+完整请求/响应字段见 [docs/API.md](docs/API.md)。
 
 ## 后处理策略
 
-- 先做目标检测，再对整张图运行语义分割，并取 `alert.segmentor_target_class_ids` 对应的掩膜。
-- 仅对 `alert.segment_postprocess_class_names` 中配置的检测类别应用分割后处理；默认只处理 `person`。
-- 若检测框与目标分割掩膜的重叠比例 `overlapSegment` 大于等于 `alert.in_segment_overlap_ratio`，则将 `alarmTag` 标记为 `enter_segment`；当前默认阈值为 `0.25`。
-- 若检测框与目标分割掩膜存在正交集但未达到进入阈值，或虽无交集但检测框中心到最近掩膜边界的距离 `distanceToSegment` 小于等于 `alert.near_segment_distance_px`，则将 `alarmTag` 标记为 `near_segment`。
-- 其余检测结果保持原始 `tagName`，不会额外生成分割告警标签。
+- 先做目标检测，再对整张图运行语义分割，并取 `alert.segmentor_target_class_ids` 对应掩膜
+- 仅对 `alert.segment_postprocess_class_names` 中配置的检测类别应用分割后处理
+- 若检测框与目标掩膜重叠比例 `overlapSegment >= alert.in_segment_overlap_ratio`，标记为 `enter_segment`
+- 若检测框与目标掩膜有正交集但未达到进入阈值，或中心点到最近掩膜边界距离 `distanceToSegment <= alert.near_segment_distance_px`，标记为 `near_segment`
+- 其他检测目标保持原始 `tagName`
+
+默认参数偏保守，实际业务里可以根据误报/漏报情况调整阈值。
+
+## 技术栈
+
+- **Web**：FastAPI, Starlette, Uvicorn
+- **配置与模型**：Pydantic v2
+- **视觉推理**：PyTorch, Ultralytics, MMEngine, MMSegmentation, MMCV
+- **图像处理**：OpenCV
+- **异步结果存储**：Redis
+- **质量保障**：pytest, unittest, Ruff
+- **交付**：Docker, Docker Compose, GitHub Actions
 
 ## 关键环境变量
 
 | 变量 | 说明 | 默认 |
 |------|------|------|
 | `ALERT_LOG_FORMAT` | `json` 启用 JSON 结构化日志 | 文本格式 |
-| `ALERT_DET_DEVICE` | 检测设备（`cpu`/`cuda:0`） | `cpu` |
-| `ALERT_SEG_DEVICE` | 分割设备（`cpu`/`cuda:0`） | `cpu` |
-| `ALERT_UPLOAD_MAX_BYTES` | 单张上传最大字节数 | `20971520`（20MB） |
+| `ALERT_DET_DEVICE` | 检测设备（`cpu` / `cuda:0`） | `cpu` |
+| `ALERT_SEG_DEVICE` | 分割设备（`cpu` / `cuda:0`） | `cpu` |
+| `ALERT_UPLOAD_MAX_BYTES` | 单张上传最大字节数 | `20971520` |
 | `ALERT_IMAGE_RETENTION_DAYS` | 图片保留天数 | `30` |
+| `ALERT_WORKER_THREADS` | 后台 worker 并发线程数 | `4` |
+| `ALERT_WORKER_MAX_INFLIGHT` | 最大并发处理中任务数 | `64` |
 
-完整变量列表见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。
+完整配置与部署细节见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。
 
-## 目录概览
+## 项目结构
 
 ```text
 app/
-  common/      # 配置、日志（JSON格式）、异常（ErrorCode枚举）、指标
+  common/      # 配置、日志、异常、指标
   adapters/    # Redis / 模型适配器
-  alerting/    # 业务编排层（service、store、pipeline、worker）
-  http/        # 路由层（FastAPI Depends注入）
+  alerting/    # service、pipeline、store、worker、schema
+  http/        # API 路由
   application.py
 main.py
-tests/         # 单元测试 + 集成测试
-scripts/       # 手动脚本（模型安装、API 烟雾测试、CI 门控）
-docs/          # 文档
-docker/        # 多阶段 Dockerfile + compose（含 healthcheck）
-runtime/       # 本地运行目录骨架（gitignored）
-pyproject.toml # 项目元数据、ruff/mypy/pytest 配置
+tests/
+scripts/
+docs/
+docker/
+runtime/
 ```
 
 ## 开发与测试
 
 ```bash
 # 安装 CI 依赖
-pip install -r requirements-ci.txt
+python3 -m pip install -r requirements-ci.txt
 
-# 运行全部测试
+# 运行测试
+python3 scripts/ci_unittest_gate.py
 pytest
-
-# 构建并运行测试镜像
-docker build -f docker/Dockerfile --target test -t ai-alerting:test .
-docker run --rm -v "$(pwd)/runtime:/root/.ai_alerting" ai-alerting:test
-
-# 使用 compose 运行测试容器
-cd docker
-docker compose --profile test run --rm ai_alerting_test
 
 # 代码检查
 ruff check app tests scripts
 ruff format --check app tests scripts
+
+# 构建测试镜像
+docker build -f docker/Dockerfile --target test -t ai-alerting:test .
+docker run --rm -v "$(pwd)/runtime:/root/.ai_alerting" ai-alerting:test
 ```
 
-容器验证补充：
-- 测试镜像已包含 `pytest`，可直接在 Docker 中跑全量测试。
-- 运行镜像已补齐 OpenCV 所需系统库，包含 `libgl1`。
-- 运行镜像已改为在构建阶段固化安装兼容的 full `mmcv`；仅有 `mmcv-lite` 不能完成当前 `mmseg` 推理链路。
-- 推理运行时已将 `numpy` 固定为 `<2`，避免 `torch 2.1.x` / `mmcv 2.1.x` 在 NumPy 2.x 下出现 ABI 兼容问题。
+工程侧已经覆盖的点包括：
 
-CI 使用 GitHub Actions，覆盖 Python 3.10 / 3.11 / 3.12 三个版本，并含 ruff lint 和 Docker build 验证。
+- CI 闸门脚本，防止“测试发现为 0”或大面积跳过
+- HTTP 路由、worker 生命周期、配置加载、指标、service/store/pipeline 测试
+- Docker 运行依赖与测试依赖分离
+
+## 文档导航
+
+| 文档 | 说明 |
+|------|------|
+| [docs/API.md](docs/API.md) | HTTP 接口规范 |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | 部署配置、环境变量、Docker |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | 运维基线、Prometheus 面板、告警阈值 |
+| [docs/CALL_CHAIN.md](docs/CALL_CHAIN.md) | 调用链与架构说明 |
+| [docs/CONTAINER_TEST.md](docs/CONTAINER_TEST.md) | 容器 GPU 测试步骤 |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献流程、提交前检查、PR 约定 |
+| [SECURITY.md](SECURITY.md) | 漏洞报告与安全披露流程 |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 社区协作行为基线 |
+
+## 作为作品集项目，我希望它体现什么
+
+如果你在看我的作品集，这个项目主要想体现以下几点：
+
+- 我不只会“调模型”，也会把模型能力包装成可部署、可观测、可维护的服务
+- 我关注从算法结果到业务结果之间的落地层设计
+- 我会为接口、异常、配置、日志、指标、测试和容器化交付负责
+- 我能把一个偏实验性质的视觉能力整理成相对完整的工程项目
 
 ## 开源协作
 
