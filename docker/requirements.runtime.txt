@@ -1,0 +1,17 @@
+fastapi>=0.110
+starlette>=0.37
+uvicorn
+click
+python-multipart
+pydantic>=2.0
+numpy<2
+redis
+requests
+
+torch==2.1.0
+torchvision==0.16.0
+ultralytics
+mmengine
+mmsegmentation
+ftfy
+regex

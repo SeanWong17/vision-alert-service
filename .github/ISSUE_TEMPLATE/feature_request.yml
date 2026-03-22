@@ -1,0 +1,30 @@
+name: Feature Request
+description: 提交功能建议或较大改进方向
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你想解决的问题
+      description: 说明当前痛点或限制
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议方案
+      description: 说明预期行为、接口或交互
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 替代方案
+      description: 说明你考虑过的其他做法
+  - type: textarea
+    id: impact
+    attributes:
+      label: 影响范围
+      description: 说明对 API、配置、部署或性能的影响

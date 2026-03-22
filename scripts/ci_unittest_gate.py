@@ -3,11 +3,22 @@
 from __future__ import annotations
 
 import os
+import pathlib
 import sys
 import unittest
 
 
+def _ensure_repo_root_on_path() -> None:
+    """确保直接执行脚本时也能导入仓库内的 app/tests 包。"""
+
+    repo_root = pathlib.Path(__file__).resolve().parents[1]
+    repo_root_str = str(repo_root)
+    if repo_root_str not in sys.path:
+        sys.path.insert(0, repo_root_str)
+
+
 def main() -> int:
+    _ensure_repo_root_on_path()
     min_executed = int(os.getenv("CI_MIN_EXECUTED_TESTS", "10"))
     max_skip_ratio = float(os.getenv("CI_MAX_SKIP_RATIO", "0.40"))
 

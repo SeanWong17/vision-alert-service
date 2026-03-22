@@ -23,6 +23,9 @@ python3 main.py --host 0.0.0.0 --port 8011
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | 运维基线、Prometheus 监控面板、告警阈值 |
 | [docs/CALL_CHAIN.md](docs/CALL_CHAIN.md) | 调用链与架构说明 |
 | [docs/CONTAINER_TEST.md](docs/CONTAINER_TEST.md) | 容器 GPU 测试步骤 |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献流程、提交前检查、PR 约定 |
+| [SECURITY.md](SECURITY.md) | 漏洞报告与安全披露流程 |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 社区协作行为基线 |
 
 ## 核心特性
 
@@ -109,6 +112,12 @@ ruff format --check app tests scripts
 - 推理运行时已将 `numpy` 固定为 `<2`，避免 `torch 2.1.x` / `mmcv 2.1.x` 在 NumPy 2.x 下出现 ABI 兼容问题。
 
 CI 使用 GitHub Actions，覆盖 Python 3.10 / 3.11 / 3.12 三个版本，并含 ruff lint 和 Docker build 验证。
+
+## 开源协作
+
+- 新贡献请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)
+- 安全问题请参考 [SECURITY.md](SECURITY.md)
+- 社区协作行为见 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 
 ## 许可证
 

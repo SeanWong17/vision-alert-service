@@ -3,7 +3,22 @@ name = "ai-alerting-server"
 version = "1.0.0"
 description = "视觉告警服务：YOLO 目标检测 + MMSeg 语义分割 + 类别后处理"
 requires-python = ">=3.10"
+readme = "README.md"
 license = {text = "CC BY-NC 4.0"}
+authors = [
+    {name = "AI Alerting contributors"},
+]
+keywords = ["fastapi", "computer-vision", "yolo", "mmsegmentation", "alerting"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: FastAPI",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
+    "License :: Other/Proprietary License",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

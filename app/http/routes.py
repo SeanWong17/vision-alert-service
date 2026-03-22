@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
-from contextvars import copy_context
-from functools import partial
 from typing import Any
 
 from fastapi import Depends, File, Form, Query, UploadFile
+from starlette.concurrency import run_in_threadpool
 
 from app.alerting import _get_service
 from app.alerting.schemas import ConfirmPayload
@@ -18,9 +16,7 @@ from app.http import router
 async def _run_sync(func, *args):
     """将同步业务函数委派到默认线程池，避免阻塞事件循环。"""
 
-    loop = asyncio.get_running_loop()
-    ctx = copy_context()
-    return await loop.run_in_executor(None, partial(ctx.run, func, *args))
+    return await run_in_threadpool(func, *args)
 
 
 @router.post("/transmission/upload")
