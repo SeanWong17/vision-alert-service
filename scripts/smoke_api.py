@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import mimetypes
 import time
 
 import requests
@@ -15,12 +16,20 @@ def build_url(host: str, port: int, path: str) -> str:
     return f"http://{host}:{port}{path}"
 
 
+def guess_mime_type(image_path: str) -> str:
+    """根据文件后缀推断上传 MIME 类型。"""
+
+    mime_type, _ = mimetypes.guess_type(image_path)
+    return mime_type or "application/octet-stream"
+
+
 def run_sync(host: str, port: int, image_path: str) -> None:
     """执行同步接口调用并打印结果。"""
 
     url = build_url(host, port, "/api/analysis/danger")
+    mime_type = guess_mime_type(image_path)
     with open(image_path, "rb") as fp:
-        files = {"image": (image_path, fp, "image/jpeg")}
+        files = {"image": (image_path, fp, mime_type)}
         data = {
             "file_name": image_path.split("/")[-1],
             "tasks": json.dumps(
@@ -52,9 +61,10 @@ def run_async(host: str, port: int, image_path: str) -> None:
 
     session_id = f"SMOKE_{int(time.time())}"
     upload_url = build_url(host, port, "/api/transmission/upload")
+    mime_type = guess_mime_type(image_path)
 
     with open(image_path, "rb") as fp:
-        files = {"file": (image_path, fp, "image/jpeg")}
+        files = {"file": (image_path, fp, mime_type)}
         data = {
             "FileUpload": json.dumps({"filename": image_path.split("/")[-1], "sessionId": session_id}),
             "tasks": json.dumps(

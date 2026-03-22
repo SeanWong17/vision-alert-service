@@ -82,7 +82,7 @@ class AlertConfig(BaseModel):
     detector_device: str = "0"
     segmentor_device: str = "cuda:0"
     segmentor_target_class_ids: tuple[int, ...] = Field(
-        default=(21,),
+        default=(2,),
         validation_alias=AliasChoices("segmentor_target_class_ids", "segmentor_water_class_ids"),
     )
     queue_name: str = "alert:queue:pending"
@@ -200,7 +200,7 @@ class AlertSettings:
     detector_iou: float = 0.45
     detector_device: str = "0"
     segmentor_device: str = "cuda:0"
-    segmentor_target_class_ids: tuple[int, ...] = (21,)
+    segmentor_target_class_ids: tuple[int, ...] = (2,)
     queue_name: str = "alert:queue:pending"
     pending_key_prefix: str = "alert:pending"
     result_key_prefix: str = "alert:result"

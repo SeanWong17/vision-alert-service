@@ -84,7 +84,7 @@ python3 scripts/smoke_api.py --host 127.0.0.1 --port 8011 --image /abs/path/to/t
 - 容器启动时报 `libGL.so.1`：
   - 说明 OpenCV 运行库不完整；镜像需包含 `libgl1`。
 - 分割结果全空：
-  - 确认 `runtime/config.json` 里 `alert.segmentor_target_class_ids` 为 `[21]`（ADE20K 类别 ID）。
+  - 确认 `runtime/config.json` 里 `alert.segmentor_target_class_ids` 为 `[2]`（ADE20K 的 sky 类别 ID）。
 - 真实图片请求报 `No module named 'mmcv._ext'`：
   - 说明当前只有 `mmcv-lite`，或 Docker 构建阶段的 full `mmcv` 安装失败。
   - 优先检查镜像构建日志中的 `python -m mim install "mmcv==..."` 步骤。

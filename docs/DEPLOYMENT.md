@@ -45,7 +45,7 @@ python3 scripts/install_light_models.py --model-root runtime/models --packs nano
 ```json
 {
   "alert": {
-    "segmentor_target_class_ids": [21]
+    "segmentor_target_class_ids": [2]
   }
 }
 ```

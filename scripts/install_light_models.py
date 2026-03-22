@@ -48,7 +48,7 @@ SEGFORMER_B0 = SegConfigSpec(
         "segformer_mit-b0_512x512_160k_ade20k/"
         "segformer_mit-b0_512x512_160k_ade20k_20210726_101530-8ffa8fda.pth"
     ),
-    target_class_ids=(21,),
+    target_class_ids=(2,),
 )
 
 SEGFORMER_B1 = SegConfigSpec(
@@ -59,7 +59,7 @@ SEGFORMER_B1 = SegConfigSpec(
         "segformer_mit-b1_512x512_160k_ade20k/"
         "segformer_mit-b1_512x512_160k_ade20k_20210726_112106-d70e859d.pth"
     ),
-    target_class_ids=(21,),
+    target_class_ids=(2,),
 )
 
 PACKS: tuple[PackSpec, ...] = (
@@ -313,7 +313,7 @@ def main() -> None:
 
     latest_version = max(int(p.version) for p in packs)
     print(f"[done] installed {len(packs)} pack(s). latest numeric version in selection={latest_version:06d}")
-    print("[hint] set alert.segmentor_target_class_ids to [21] when using ADE20K-based packs")
+    print("[hint] set alert.segmentor_target_class_ids to [2] when using ADE20K-based packs")
 
 
 if __name__ == "__main__":
