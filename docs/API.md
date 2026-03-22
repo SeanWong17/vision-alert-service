@@ -109,10 +109,11 @@ Base URL: `http://{host}:8011/api`
 | `overlapSegment` | float | 检测框与分割区域的重叠比例（0~1） |
 | `distanceToSegment` | float | 检测框中心到最近分割区域边界的像素距离 |
 
-`alarmTag` 规则（以人员类目为例）：
+`alarmTag` 规则：
+- 仅对 `alert.segment_postprocess_class_names` 中配置的检测类别生效，默认只处理 `person`
 - `enter_segment`：检测框与分割区域重叠比例 ≥ 阈值（`in_segment_overlap_ratio`）
 - `near_segment`：中心距分割区域边界 ≤ 阈值（`near_segment_distance_px`）
-- 其余目标：沿用原始 `tagName`
+- 未命中后处理规则时：沿用原始 `tagName`
 
 ## 3. 异步结果确认
 - 方法：`POST /transmission/result_confirm`

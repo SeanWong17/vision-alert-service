@@ -148,6 +148,9 @@ class TestAppConfigDefaults(unittest.TestCase):
         self.assertAlmostEqual(a.detector_iou, 0.45)
         self.assertEqual(a.detector_device, "0")
         self.assertEqual(a.segmentor_device, "cuda:0")
+        self.assertEqual(a.segmentor_target_class_ids, (2,))
+        self.assertEqual(a.segment_postprocess_class_names, ("person",))
+        self.assertEqual(a.in_segment_overlap_ratio, 0.8)
         self.assertEqual(a.worker_threads, 4)
         self.assertEqual(a.upload_max_bytes, 20 * 1024 * 1024)
 
@@ -348,15 +351,23 @@ class TestLoadAlertSettings(unittest.TestCase):
         loader = ConfigLoader(path="/tmp/_alert_settings_test_no_file.json")
         # 替换模块级 settings 引用为我们的默认配置
         original_settings = mod.settings
+        env = {
+            key: value
+            for key, value in os.environ.items()
+            if key not in {"ALERT_DET_DEVICE", "ALERT_SEG_DEVICE"}
+        }
         try:
             mod.settings = loader.config
-            result = mod.load_alert_settings()
-            self.assertEqual(result.detector_device, "0")
-            self.assertEqual(result.segmentor_device, "cuda:0")
-            self.assertEqual(result.worker_threads, 4)
-            self.assertEqual(result.worker_max_inflight, 64)
-            self.assertEqual(result.det_model_name, "det_model.pt")
-            self.assertEqual(result.upload_max_bytes, 20 * 1024 * 1024)
+            with mock.patch.dict(os.environ, env, clear=True):
+                result = mod.load_alert_settings()
+                self.assertEqual(result.detector_device, "0")
+                self.assertEqual(result.segmentor_device, "cuda:0")
+                self.assertEqual(result.segment_postprocess_class_names, ("person",))
+                self.assertEqual(result.in_segment_overlap_ratio, 0.8)
+                self.assertEqual(result.worker_threads, 4)
+                self.assertEqual(result.worker_max_inflight, 64)
+                self.assertEqual(result.det_model_name, "det_model.pt")
+                self.assertEqual(result.upload_max_bytes, 20 * 1024 * 1024)
         finally:
             mod.settings = original_settings
 
@@ -480,6 +491,8 @@ class TestLoadAlertSettings(unittest.TestCase):
                 "worker_threads": 12,
                 "detector_device": "cpu",
                 "detector_conf": 0.6,
+                "segment_postprocess_class_names": ["person", "visitor"],
+                "in_segment_overlap_ratio": 0.9,
             }
         }
         with tempfile.NamedTemporaryFile(
@@ -497,6 +510,8 @@ class TestLoadAlertSettings(unittest.TestCase):
                 self.assertEqual(result.worker_threads, 12)
                 self.assertEqual(result.detector_device, "cpu")
                 self.assertAlmostEqual(result.detector_conf, 0.6)
+                self.assertEqual(result.segment_postprocess_class_names, ("person", "visitor"))
+                self.assertAlmostEqual(result.in_segment_overlap_ratio, 0.9)
             finally:
                 mod.settings = original_settings
         finally:

@@ -45,10 +45,17 @@ python3 scripts/install_light_models.py --model-root runtime/models --packs nano
 ```json
 {
   "alert": {
-    "segmentor_target_class_ids": [2]
+    "segmentor_target_class_ids": [2],
+    "segment_postprocess_class_names": ["person"],
+    "in_segment_overlap_ratio": 0.8,
+    "near_segment_distance_px": 24
   }
 }
 ```
+
+说明：
+- `segment_postprocess_class_names` 控制哪些检测类别会套用分割后处理，默认只包含 `person`。
+- `in_segment_overlap_ratio` 控制 `enter_segment` 判定阈值，当前默认值为 `0.8`。
 
 ## 3. Docker
 Docker 文件在 `docker/` 目录（compose 文件名为 `docker-compose.yaml`）。

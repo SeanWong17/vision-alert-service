@@ -76,11 +76,20 @@ class AlertPipelinePostprocessTest(unittest.TestCase):
         self.assertEqual(roi["targets"][0]["alarmTag"], "near_segment")
 
     def test_derive_alarm_tag_rules(self):
-        """人员类别应按重叠率和距离映射业务标签。"""
+        """配置类目应按重叠率和距离映射业务标签。"""
 
-        self.assertEqual(self.pipeline._derive_alarm_tag("person", overlap_ratio=0.2, distance=100), "enter_segment")
+        self.assertEqual(self.pipeline._derive_alarm_tag("person", overlap_ratio=0.8, distance=100), "enter_segment")
+        self.assertEqual(self.pipeline._derive_alarm_tag("person", overlap_ratio=0.2, distance=100), "person")
         self.assertEqual(self.pipeline._derive_alarm_tag("person", overlap_ratio=0.01, distance=5), "near_segment")
         self.assertEqual(self.pipeline._derive_alarm_tag("car", overlap_ratio=0.2, distance=1), "car")
+
+    def test_derive_alarm_tag_only_uses_configured_classes(self):
+        """仅配置中的类别会应用分割后处理。"""
+
+        self.pipeline.settings.segment_postprocess_class_names = ("person",)
+
+        self.assertEqual(self.pipeline._derive_alarm_tag("person", overlap_ratio=0.9, distance=5), "enter_segment")
+        self.assertEqual(self.pipeline._derive_alarm_tag("adult", overlap_ratio=0.9, distance=5), "adult")
 
     def test_draw_render_applies_segment_overlay_to_masked_pixels(self):
         """结果图应对目标分割类掩膜区域绘制半透明叠色。"""

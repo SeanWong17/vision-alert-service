@@ -85,6 +85,7 @@ class AlertConfig(BaseModel):
         default=(2,),
         validation_alias=AliasChoices("segmentor_target_class_ids", "segmentor_water_class_ids"),
     )
+    segment_postprocess_class_names: tuple[str, ...] = ("person",)
     queue_name: str = "alert:queue:pending"
     pending_key_prefix: str = "alert:pending"
     result_key_prefix: str = "alert:result"
@@ -99,7 +100,7 @@ class AlertConfig(BaseModel):
     default_limit: int = 1
     roi_default: tuple[int, int, int, int] = (-1, -1, -1, -1)
     near_segment_distance_px: int = 24
-    in_segment_overlap_ratio: float = 0.08
+    in_segment_overlap_ratio: float = 0.8
     worker_poll_seconds: float = 0.05
     worker_threads: int = 4
     worker_max_inflight: int = 64
@@ -201,6 +202,7 @@ class AlertSettings:
     detector_device: str = "0"
     segmentor_device: str = "cuda:0"
     segmentor_target_class_ids: tuple[int, ...] = (2,)
+    segment_postprocess_class_names: tuple[str, ...] = ("person",)
     queue_name: str = "alert:queue:pending"
     pending_key_prefix: str = "alert:pending"
     result_key_prefix: str = "alert:result"
@@ -215,7 +217,7 @@ class AlertSettings:
     default_limit: int = 1
     roi_default: tuple[int, int, int, int] = (-1, -1, -1, -1)
     near_segment_distance_px: int = 24
-    in_segment_overlap_ratio: float = 0.08
+    in_segment_overlap_ratio: float = 0.8
     worker_poll_seconds: float = 0.05
     worker_threads: int = 4
     worker_max_inflight: int = 64
@@ -273,6 +275,7 @@ def load_alert_settings() -> AlertSettings:
         detector_device=os.getenv("ALERT_DET_DEVICE", alert_cfg.detector_device),
         segmentor_device=os.getenv("ALERT_SEG_DEVICE", alert_cfg.segmentor_device),
         segmentor_target_class_ids=tuple(int(v) for v in alert_cfg.segmentor_target_class_ids),
+        segment_postprocess_class_names=tuple(str(v).strip().lower() for v in alert_cfg.segment_postprocess_class_names if str(v).strip()),
         queue_name=alert_cfg.queue_name,
         pending_key_prefix=alert_cfg.pending_key_prefix,
         result_key_prefix=alert_cfg.result_key_prefix,

@@ -11,7 +11,7 @@
 2. `AlertService.analyze_sync`
 3. `AlertPipeline.run`
 4. `YoloDetector.predict_boxes` + `MmsegSegmentor.predict_mask`
-5. 后处理生成 `near_segment/enter_segment`
+5. 后处理按配置类别生成 `near_segment/enter_segment`
 6. 返回任务结果
 
 ## 3. 异步接口调用链（/transmission/upload）

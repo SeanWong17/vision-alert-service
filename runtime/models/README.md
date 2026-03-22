@@ -6,7 +6,7 @@
 - `mmseg_config.py`
 - `seg_model.pt`
 
-## 快速安装轻量模型（人检 + 水面分割）
+## 快速安装轻量模型（人检 + 天空分割）
 
 在仓库根目录执行：
 
@@ -24,5 +24,6 @@ python3 scripts/install_light_models.py --model-root runtime/models --packs nano
 
 - 天空类别默认使用 ADE20K 的 `sky=2`，请在 `runtime/config.json` 设置：
   - `"alert.segmentor_target_class_ids": [2]`
+  - `"alert.segment_postprocess_class_names": ["person"]`
 - 建议本地仅保留一个版本目录，避免切换误用。
 - 服务会加载数值最大的版本目录。

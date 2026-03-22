@@ -102,16 +102,16 @@ class AlertPipeline:
 
         return cv2.distanceTransform((mask == 0).astype(np.uint8), cv2.DIST_L2, 3)
 
-    @staticmethod
-    def _person_like(label: str) -> bool:
-        """判断类别是否属于人员相关目标。"""
+    def _uses_segment_postprocess(self, label: str) -> bool:
+        """判断检测类别是否启用分割后处理。"""
 
-        return (label or "").lower() in {"person", "adult", "teenager", "swim", "rodster"}
+        configured = {name.strip().lower() for name in self.settings.segment_postprocess_class_names}
+        return (label or "").strip().lower() in configured
 
     def _derive_alarm_tag(self, tag_name: str, overlap_ratio: float, distance: float) -> str:
         """根据后处理规则生成告警标签。"""
 
-        if self._person_like(tag_name):
+        if self._uses_segment_postprocess(tag_name):
             if overlap_ratio >= self.settings.in_segment_overlap_ratio:
                 return "enter_segment"
             if distance <= self.settings.near_segment_distance_px:
