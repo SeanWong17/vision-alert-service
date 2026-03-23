@@ -1,0 +1,88 @@
+"""告警领域的数据模型定义。"""
+
+from __future__ import annotations
+
+import time
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+
+class DetectionBox(BaseModel):
+    """单个检测框及其分割区域关系特征。"""
+
+    coordinate: list[int] = Field(default_factory=list)
+    score: float = 0.0
+    tagName: str = ""
+    alarmTag: str = ""
+    overlapSegment: float = 0.0
+    distanceToSegment: float = 0.0
+
+    model_config = {"populate_by_name": True}
+
+
+class RoiRule(BaseModel):
+    """单个 ROI 的告警规则。"""
+
+    roiId: str = ""
+    coordinate: list[int] = Field(default_factory=lambda: [-1, -1, -1, -1])
+    classes: list[str] = Field(default_factory=list)
+    confThreshold: float = 0.5
+
+    model_config = {"populate_by_name": True}
+
+
+class AlarmTask(BaseModel):
+    """标准化后的任务定义。"""
+
+    id: Any = None
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
+class TaskResult(BaseModel):
+    """与任务 ID 对齐的单项结果。"""
+
+    id: Any = None
+    reserved: str = "0"
+    detail: dict[str, Any] = Field(default_factory=dict)
+
+
+class UploadEnvelope(BaseModel):
+    """上传请求中的元数据（来自表单 FileUpload 字段）。"""
+
+    filename: str
+    sessionId: str
+    timestamp: int = Field(default_factory=lambda: int(time.time() * 1000))
+    fileuuid: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class QueueTask(BaseModel):
+    """异步队列中的任务载荷。"""
+
+    image_id: str
+    session_id: str
+    file_name: str
+    file_path: str
+    tasks: list[AlarmTask] = Field(default_factory=list)
+
+
+class StoredResult(BaseModel):
+    """异步处理后持久化的结果。"""
+
+    imageId: str
+    filename: str
+    results: list[dict[str, Any]] = Field(default_factory=list)
+    timestamp: int = Field(default_factory=lambda: int(time.time() * 1000))
+
+    model_config = {"populate_by_name": True}
+
+
+class ConfirmPayload(BaseModel):
+    """结果确认接口的现代请求体。"""
+
+    sessionId: str = ""
+    imageIds: list[str] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}

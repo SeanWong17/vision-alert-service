@@ -1,0 +1,66 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install linter
+        run: python -m pip install ruff
+
+      - name: Run ruff check
+        run: ruff check app tests scripts
+
+      - name: Run ruff format check
+        run: ruff format --check app tests scripts
+
+  unittest:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-ci.txt
+
+      - name: Syntax check
+        run: |
+          python -m compileall -q app tests scripts
+
+      - name: Run unit tests
+        env:
+          CI_MIN_EXECUTED_TESTS: "10"
+          CI_MAX_SKIP_RATIO: "0.40"
+        run: |
+          python scripts/ci_unittest_gate.py
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 仅验证 Dockerfile 能成功构建，不运行容器（CI 环境无模型权重）
+      - name: Build Docker image
+        run: docker build -f docker/Dockerfile -t vision-alert:ci .

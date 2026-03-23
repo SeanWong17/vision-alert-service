@@ -1,0 +1,63 @@
+"""HTTP 路由控制器：仅做参数接收、调用服务并返回响应。"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from fastapi import Depends, File, Form, Query, UploadFile
+from starlette.concurrency import run_in_threadpool
+
+from app.alerting import _get_service
+from app.alerting.schemas import ConfirmPayload
+from app.alerting.service import AlertService
+from app.http import router
+
+
+async def _run_sync(func, *args):
+    """将同步业务函数委派到默认线程池，避免阻塞事件循环。"""
+
+    return await run_in_threadpool(func, *args)
+
+
+@router.post("/jobs/upload")
+async def upload(
+    file: UploadFile = File(...),
+    FileUpload: Any = Form(...),
+    tasks: Any = Form(...),
+    service: AlertService = Depends(_get_service),
+):
+    """异步上传接口：返回 sessionId 与 imageId。"""
+
+    return await _run_sync(service.submit_async, file, FileUpload, tasks)
+
+
+@router.post("/analysis/danger")
+async def analysis_danger(
+    image: UploadFile = File(...),
+    file_name: str = Form(...),
+    tasks: Any = Form(...),
+    service: AlertService = Depends(_get_service),
+):
+    """同步分析接口：返回任务结果列表。"""
+
+    return await _run_sync(service.analyze_sync, image, file_name, tasks)
+
+
+@router.get("/jobs/alarm_result")
+async def alarm_result(
+    sessionId: str = Query(None),
+    service: AlertService = Depends(_get_service),
+):
+    """异步结果拉取接口：返回现代字段 items。"""
+
+    return await _run_sync(service.get_alarm_result, sessionId)
+
+
+@router.post("/jobs/result_confirm")
+async def result_confirm(
+    spec: ConfirmPayload,
+    service: AlertService = Depends(_get_service),
+):
+    """异步结果确认接口：仅接受现代确认载荷。"""
+
+    return await _run_sync(service.confirm_result, spec)

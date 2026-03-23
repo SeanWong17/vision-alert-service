@@ -1,0 +1,89 @@
+# Docker Compose 配置（Compose 规范下无需保留 version 字段）
+
+services:
+  # 告警服务
+  vision_alert:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: runtime
+    container_name: vision_alert_service
+    restart: unless-stopped
+    ports:
+      - "8011:8011"
+    environment:
+      - TZ=Asia/Shanghai
+      - ALERT_CONFIG_PATH=/root/.vision_alert/config.json
+      - ALERT_REDIS_HOST=redis
+      - ALERT_REDIS_PORT=6379
+      - ALERT_WORKER_THREADS=4
+      - ALERT_DET_DEVICE=cpu
+      - ALERT_SEG_DEVICE=cpu
+      - ALERT_IMAGE_RETENTION_DAYS=30
+      - ALERT_CLEANUP_SCAN_INTERVAL_SECONDS=3600
+      - ALERT_CONFIG_STRICT=true
+      # GPU 模式：取消注释以下两行，并在下方 deploy 区段启用 GPU 资源
+      # - ALERT_DET_DEVICE=0
+      # - ALERT_SEG_DEVICE=cuda:0
+    volumes:
+      # 运行目录挂载：日志、上传图、结果图、模型
+      - ../runtime:/root/.vision_alert
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8011/healthz')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 2G
+        # GPU 模式：取消注释以下三行
+        # devices:
+        #   - driver: nvidia
+        #     capabilities: [gpu]
+
+  # 容器内单元测试：按 profile 显式触发，避免常规 up 时执行
+  vision_alert_test:
+    profiles: ["test"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: test
+    container_name: vision_alert_test_runner
+    environment:
+      - TZ=Asia/Shanghai
+      - ALERT_DET_DEVICE=cpu
+      - ALERT_SEG_DEVICE=cpu
+      - ALERT_CONFIG_STRICT=true
+    volumes:
+      - ../runtime:/root/.vision_alert
+    command: ["python", "-m", "pytest"]
+
+  # Redis 队列与结果存储
+  redis:
+    image: redis:7-alpine
+    container_name: vision_alert_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+volumes:
+  redis_data:

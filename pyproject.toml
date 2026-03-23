@@ -1,0 +1,63 @@
+[project]
+name = "vision-alert-service"
+version = "1.0.0"
+description = "视觉告警服务：YOLO 目标检测 + MMSeg 语义分割 + 类别后处理"
+requires-python = ">=3.10"
+readme = "README.md"
+license = {text = "CC BY-NC 4.0"}
+authors = [
+    {name = "SeanWong17"},
+]
+keywords = ["fastapi", "computer-vision", "yolo", "mmsegmentation", "alerting"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: FastAPI",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
+    "License :: Free for non-commercial use",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["*Test"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+src = ["app", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+]
+ignore = [
+    "E501",   # 行长度由 line-length 控制
+    "N815",   # 驼峰命名兼容现有 API 字段
+    "N802",   # 函数名兼容现有约定
+    "N803",   # 参数名兼容对外 API 字段（FileUpload、sessionId）
+    "SIM108", # 三元表达式非必须
+    "B008",   # FastAPI File()/Form()/Depends() 是框架规定写法，非真正的函数调用默认值
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_configs = true
+warn_return_any = true
+disallow_untyped_defs = false
