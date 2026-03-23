@@ -1,5 +1,7 @@
 # 行为准则
 
+[中文](CODE_OF_CONDUCT.md) | [English](CODE_OF_CONDUCT.en.md)
+
 本项目希望保持直接、专业、尊重事实的协作方式。
 
 ## 我们期望的行为

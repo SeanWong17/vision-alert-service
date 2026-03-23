@@ -19,6 +19,7 @@ def _runtime_ready() -> bool:
     """检测运行依赖是否齐全（需要 pydantic）。"""
     try:
         import pydantic  # noqa: F401
+
         return True
     except Exception:
         return False
@@ -31,6 +32,7 @@ class TestEnvBool(unittest.TestCase):
     def _call(self, name: str, default: bool) -> bool:
         """快捷调用被测函数。"""
         from app.common.settings import _env_bool
+
         return _env_bool(name, default)
 
     def test_returns_default_when_env_not_set(self):
@@ -60,6 +62,7 @@ class TestResolveLatestModelRoot(unittest.TestCase):
     def _call(self, base_dir: str) -> str:
         """快捷调用被测函数。"""
         from app.common.settings import _resolve_latest_model_root
+
         return _resolve_latest_model_root(base_dir)
 
     def test_nonexistent_dir_returns_itself(self):
@@ -115,6 +118,7 @@ class TestAppConfigDefaults(unittest.TestCase):
     def test_redis_defaults(self):
         """RedisSettings 默认值应符合预期。"""
         from app.common.settings import RedisSettings
+
         r = RedisSettings()
         self.assertEqual(r.host, "127.0.0.1")
         self.assertEqual(r.port, 6379)
@@ -124,6 +128,7 @@ class TestAppConfigDefaults(unittest.TestCase):
     def test_server_defaults(self):
         """ServerSettings 默认值应符合预期。"""
         from app.common.settings import ServerSettings
+
         s = ServerSettings()
         self.assertEqual(s.host, "0.0.0.0")
         self.assertEqual(s.port, 8011)
@@ -131,6 +136,7 @@ class TestAppConfigDefaults(unittest.TestCase):
     def test_file_settings_properties(self):
         """FileSettings 的衍生路径属性应基于 root 拼接。"""
         from app.common.settings import FileSettings
+
         f = FileSettings(root="/test_root")
         self.assertEqual(f.upload, os.path.join("/test_root", "images/upload"))
         self.assertEqual(f.result, os.path.join("/test_root", "images/result"))
@@ -140,6 +146,7 @@ class TestAppConfigDefaults(unittest.TestCase):
     def test_alert_config_defaults(self):
         """AlertConfig 关键默认值应符合预期。"""
         from app.common.settings import AlertConfig
+
         a = AlertConfig()
         self.assertEqual(a.det_model_name, "det_model.pt")
         self.assertEqual(a.seg_model_name, "seg_model.pt")
@@ -157,6 +164,7 @@ class TestAppConfigDefaults(unittest.TestCase):
     def test_app_config_contains_all_sections(self):
         """AppConfig 应包含全部子配置区段。"""
         from app.common.settings import AppConfig
+
         cfg = AppConfig()
         self.assertIsNotNone(cfg.redis)
         self.assertIsNotNone(cfg.filepath)
@@ -171,16 +179,19 @@ class TestConfigLoader(unittest.TestCase):
     def setUp(self):
         """每个测试前重置类级别单例缓存。"""
         from app.common.settings import ConfigLoader
+
         ConfigLoader._config = None
 
     def tearDown(self):
         """每个测试后重置类级别单例缓存，避免影响其他测试。"""
         from app.common.settings import ConfigLoader
+
         ConfigLoader._config = None
 
     def test_load_default_when_file_missing(self):
         """配置文件不存在时应加载默认配置。"""
         from app.common.settings import ConfigLoader
+
         loader = ConfigLoader(path="/tmp/_nonexistent_config_12345.json")
         cfg = loader.config
         self.assertEqual(cfg.server.port, 8011)
@@ -189,13 +200,12 @@ class TestConfigLoader(unittest.TestCase):
     def test_load_valid_json(self):
         """应能正确加载合法的 JSON 配置文件。"""
         from app.common.settings import ConfigLoader
+
         data = {
             "redis": {"host": "10.0.0.1", "port": 6380},
             "server": {"port": 9999},
         }
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as fp:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as fp:
             json.dump(data, fp)
             fp.flush()
             tmp_path = fp.name
@@ -213,10 +223,9 @@ class TestConfigLoader(unittest.TestCase):
     def test_load_partial_json(self):
         """只包含部分配置的 JSON 文件，缺失字段应回退默认值。"""
         from app.common.settings import ConfigLoader
+
         data = {"alert": {"worker_threads": 8}}
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as fp:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as fp:
             json.dump(data, fp)
             fp.flush()
             tmp_path = fp.name
@@ -232,26 +241,23 @@ class TestConfigLoader(unittest.TestCase):
 
     def test_strict_mode_raises_on_invalid_json(self):
         """严格模式下，非法 JSON 文件应抛出 ConfigLoadError。"""
-        from app.common.settings import ConfigLoadError, ConfigLoader
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as fp:
+        from app.common.settings import ConfigLoader, ConfigLoadError
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as fp:
             fp.write("{invalid json content!!!")
             fp.flush()
             tmp_path = fp.name
         try:
-            with mock.patch.dict(os.environ, {"ALERT_CONFIG_STRICT": "true"}):
-                with self.assertRaises(ConfigLoadError):
-                    ConfigLoader(path=tmp_path)
+            with mock.patch.dict(os.environ, {"ALERT_CONFIG_STRICT": "true"}), self.assertRaises(ConfigLoadError):
+                ConfigLoader(path=tmp_path)
         finally:
             os.unlink(tmp_path)
 
     def test_lenient_mode_falls_back_on_invalid_json(self):
         """宽松模式下，非法 JSON 文件应回退到默认配置。"""
         from app.common.settings import ConfigLoader
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as fp:
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as fp:
             fp.write("NOT VALID JSON")
             fp.flush()
             tmp_path = fp.name
@@ -266,10 +272,9 @@ class TestConfigLoader(unittest.TestCase):
     def test_reset_restores_defaults(self):
         """reset() 应将缓存配置恢复为默认值。"""
         from app.common.settings import ConfigLoader
+
         data = {"server": {"port": 7777}}
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as fp:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as fp:
             json.dump(data, fp)
             fp.flush()
             tmp_path = fp.name
@@ -284,10 +289,9 @@ class TestConfigLoader(unittest.TestCase):
     def test_reload_reloads_from_disk(self):
         """reload() 应从磁盘重新读取配置。"""
         from app.common.settings import ConfigLoader
+
         data = {"server": {"port": 5555}}
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as fp:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as fp:
             json.dump(data, fp)
             fp.flush()
             tmp_path = fp.name
@@ -307,13 +311,14 @@ class TestConfigLoader(unittest.TestCase):
     def test_save_writes_json(self):
         """save() 应将当前配置写入 JSON 文件。"""
         from app.common.settings import ConfigLoader
+
         ConfigLoader._config = None
         loader = ConfigLoader(path="/tmp/_nonexistent_placeholder.json")
         with tempfile.TemporaryDirectory() as tmpdir:
             out_path = os.path.join(tmpdir, "saved_config.json")
             loader.save(path=out_path)
             self.assertTrue(os.path.exists(out_path))
-            with open(out_path, "r", encoding="utf-8") as fp:
+            with open(out_path, encoding="utf-8") as fp:
                 saved = json.load(fp)
             self.assertIn("redis", saved)
             self.assertIn("server", saved)
@@ -322,6 +327,7 @@ class TestConfigLoader(unittest.TestCase):
     def test_singleton_behavior(self):
         """多次实例化 ConfigLoader 应共享同一份配置（单例）。"""
         from app.common.settings import ConfigLoader
+
         loader1 = ConfigLoader(path="/tmp/_nonexistent_1.json")
         loader2 = ConfigLoader(path="/tmp/_nonexistent_2.json")
         # 两个实例应返回同一份配置对象
@@ -335,11 +341,13 @@ class TestLoadAlertSettings(unittest.TestCase):
     def setUp(self):
         """重置 ConfigLoader 单例并准备临时配置文件。"""
         from app.common.settings import ConfigLoader
+
         ConfigLoader._config = None
 
     def tearDown(self):
         """还原 ConfigLoader 单例。"""
         from app.common.settings import ConfigLoader
+
         ConfigLoader._config = None
 
     def test_loads_from_config_defaults(self):
@@ -351,11 +359,7 @@ class TestLoadAlertSettings(unittest.TestCase):
         loader = ConfigLoader(path="/tmp/_alert_settings_test_no_file.json")
         # 替换模块级 settings 引用为我们的默认配置
         original_settings = mod.settings
-        env = {
-            key: value
-            for key, value in os.environ.items()
-            if key not in {"ALERT_DET_DEVICE", "ALERT_SEG_DEVICE"}
-        }
+        env = {key: value for key, value in os.environ.items() if key not in {"ALERT_DET_DEVICE", "ALERT_SEG_DEVICE"}}
         try:
             mod.settings = loader.config
             with mock.patch.dict(os.environ, env, clear=True):
@@ -495,9 +499,7 @@ class TestLoadAlertSettings(unittest.TestCase):
                 "in_segment_overlap_ratio": 0.9,
             }
         }
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as fp:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as fp:
             json.dump(data, fp)
             fp.flush()
             tmp_path = fp.name
@@ -527,9 +529,7 @@ class TestLoadAlertSettings(unittest.TestCase):
                 "segmentor_water_class_ids": [21],
             }
         }
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as fp:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as fp:
             json.dump(data, fp)
             fp.flush()
             tmp_path = fp.name

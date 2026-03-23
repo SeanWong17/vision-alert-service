@@ -41,13 +41,9 @@ class TestObserveHttp(unittest.TestCase):
         """延迟 0.02s 的请求应落入 le=0.05 及以上的所有桶。"""
         self.registry.observe_http("GET", "/", 200, 0.02)
         # 0.02 <= 0.05，所以 le=0.05 桶至少为 1
-        self.assertGreaterEqual(
-            self.registry._http_duration_bucket[("GET", "/", 0.05)], 1
-        )
+        self.assertGreaterEqual(self.registry._http_duration_bucket[("GET", "/", 0.05)], 1)
         # +Inf 桶始终包含所有样本
-        self.assertEqual(
-            self.registry._http_duration_bucket[("GET", "/", float("inf"))], 1
-        )
+        self.assertEqual(self.registry._http_duration_bucket[("GET", "/", float("inf"))], 1)
 
     def test_method_uppercased(self):
         """传入小写 method 应自动转为大写。"""
@@ -101,17 +97,11 @@ class TestObserveInference(unittest.TestCase):
         """延迟 0.15s 应落入 le=0.25 及以上的桶，不落入 le=0.1。"""
         self.registry.observe_inference("segmentation", 0.15)
         # 0.15 > 0.1，所以 le=0.1 桶不应增加
-        self.assertEqual(
-            self.registry._inference_duration_bucket.get(("segmentation", 0.1), 0), 0
-        )
+        self.assertEqual(self.registry._inference_duration_bucket.get(("segmentation", 0.1), 0), 0)
         # 0.15 <= 0.25，所以 le=0.25 桶应为 1
-        self.assertEqual(
-            self.registry._inference_duration_bucket[("segmentation", 0.25)], 1
-        )
+        self.assertEqual(self.registry._inference_duration_bucket[("segmentation", 0.25)], 1)
         # +Inf 桶始终包含所有样本
-        self.assertEqual(
-            self.registry._inference_duration_bucket[("segmentation", float("inf"))], 1
-        )
+        self.assertEqual(self.registry._inference_duration_bucket[("segmentation", float("inf"))], 1)
 
     def test_stage_lowercased(self):
         """传入大写 stage 应自动转为小写。"""
@@ -295,7 +285,7 @@ class TestMetricsThreadSafety(unittest.TestCase):
         def write_worker():
             try:
                 barrier.wait(timeout=5)
-                for i in range(iterations):
+                for _i in range(iterations):
                     registry.observe_http("GET", "/render", 200, 0.01)
                     registry.inc_async_task("success")
                     registry.observe_inference("total", 0.5)
@@ -306,9 +296,7 @@ class TestMetricsThreadSafety(unittest.TestCase):
             try:
                 barrier.wait(timeout=5)
                 for _ in range(iterations):
-                    output = registry.render_prometheus(
-                        queue_length=1, inflight_tasks=2, dead_letter_size=0
-                    )
+                    output = registry.render_prometheus(queue_length=1, inflight_tasks=2, dead_letter_size=0)
                     # 确保输出始终是有效字符串
                     assert isinstance(output, str) and len(output) > 0
             except Exception as exc:

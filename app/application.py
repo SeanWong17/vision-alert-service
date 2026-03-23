@@ -230,7 +230,9 @@ def create_app() -> FastAPI:
         )
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content=jsonable_encoder({"code": exc.code, "message": exc.message, "status": False, "requestId": request_id}),
+            content=jsonable_encoder(
+                {"code": exc.code, "message": exc.message, "status": False, "requestId": request_id}
+            ),
             headers={"X-Request-ID": request_id} if request_id else None,
         )
 

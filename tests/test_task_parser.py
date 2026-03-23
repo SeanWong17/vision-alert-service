@@ -8,6 +8,7 @@ def _runtime_ready() -> bool:
 
     try:
         import fastapi  # noqa: F401
+
         return True
     except Exception:
         return False

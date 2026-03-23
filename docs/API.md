@@ -1,5 +1,7 @@
 # API 接口文档
 
+[中文](API.md) | [English](API.en.md)
+
 Base URL: `http://{host}:8011/api`
 
 公共说明：
@@ -7,7 +9,7 @@ Base URL: `http://{host}:8011/api`
 - 所有错误响应包含 `requestId` 字段，便于日志检索。
 
 ## 1. 异步上传
-- 方法：`POST /transmission/upload`
+- 方法：`POST /jobs/upload`
 - Content-Type：`multipart/form-data`
 - 字段：
   - `file`：图片文件
@@ -53,7 +55,7 @@ Base URL: `http://{host}:8011/api`
 ```
 
 ## 2. 异步结果拉取
-- 方法：`GET /transmission/alarm_result?sessionId=S001`
+- 方法：`GET /jobs/alarm_result?sessionId=S001`
 - 返回示例：
 ```json
 {
@@ -116,7 +118,7 @@ Base URL: `http://{host}:8011/api`
 - 未命中后处理规则时：沿用原始 `tagName`
 
 ## 3. 异步结果确认
-- 方法：`POST /transmission/result_confirm`
+- 方法：`POST /jobs/result_confirm`
 - Content-Type：`application/json`
 - 请求体：
 ```json

@@ -7,7 +7,7 @@ import re
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
 
 import cv2
 from fastapi import UploadFile
@@ -69,9 +69,9 @@ class AlertService:
         """基于文件头魔数识别图片类型。"""
 
         head = bytes(content_head or b"")
-        if len(head) >= len(JPEG_MAGIC) and head[:len(JPEG_MAGIC)] == JPEG_MAGIC:
+        if len(head) >= len(JPEG_MAGIC) and head[: len(JPEG_MAGIC)] == JPEG_MAGIC:
             return "jpeg"
-        if len(head) >= len(PNG_MAGIC) and head[:len(PNG_MAGIC)] == PNG_MAGIC:
+        if len(head) >= len(PNG_MAGIC) and head[: len(PNG_MAGIC)] == PNG_MAGIC:
             return "png"
         return ""
 
@@ -89,9 +89,7 @@ class AlertService:
         }
         allowed_mimes = {item.lower() for item in self.settings.allowed_image_types}
         allowed_kinds = {
-            image_kind
-            for image_kind, mimes in kind_to_mimes.items()
-            if any(mime in allowed_mimes for mime in mimes)
+            image_kind for image_kind, mimes in kind_to_mimes.items() if any(mime in allowed_mimes for mime in mimes)
         }
         if kind not in allowed_kinds:
             raise ApiError(status_code=HTTP_422_UNPROCESSABLE_ENTITY, message="The file is not an image")
@@ -192,10 +190,10 @@ class AlertService:
         return save_path
 
     @staticmethod
-    def _build_failure_results(task: QueueTask, error_message: str) -> List[Dict[str, Any]]:
+    def _build_failure_results(task: QueueTask, error_message: str) -> list[dict[str, Any]]:
         """构造异步失败时的结果载荷，避免调用方一直等待。"""
 
-        rows: List[Dict[str, Any]] = []
+        rows: list[dict[str, Any]] = []
         for item in task.tasks:
             rows.append(
                 {
@@ -206,7 +204,7 @@ class AlertService:
             )
         return rows
 
-    def submit_async(self, upload: UploadFile, file_upload_raw: Any, tasks_raw: Any) -> Dict[str, Any]:
+    def submit_async(self, upload: UploadFile, file_upload_raw: Any, tasks_raw: Any) -> dict[str, Any]:
         """提交异步任务：接收入参、保存原图、写入队列。"""
 
         self._validate_upload_type(upload)
@@ -229,7 +227,7 @@ class AlertService:
         logger.info("async upload accepted session_id=%s image_id=%s", envelope.sessionId, image_id)
         return {"code": 0, "message": "Success", "sessionId": envelope.sessionId, "imageId": image_id}
 
-    def analyze_sync(self, image: UploadFile, file_name: str, tasks_raw: Any) -> List[Dict[str, Any]]:
+    def analyze_sync(self, image: UploadFile, file_name: str, tasks_raw: Any) -> list[dict[str, Any]]:
         """同步推理：上传即分析并返回任务结果。
 
         优化：先读取全部字节到内存进行校验和推理，仅在需要保存结果图时落盘。
@@ -356,7 +354,7 @@ class AlertService:
                 )
                 self.store.discard_pending(task.session_id, task.image_id)
 
-    def get_alarm_result(self, session_id: str) -> Dict[str, Any]:
+    def get_alarm_result(self, session_id: str) -> dict[str, Any]:
         """按会话拉取一批异步结果（现代字段：items）。"""
 
         if not session_id:
@@ -366,7 +364,7 @@ class AlertService:
         items = [dict(row) for row in rows]
         return {"code": 0, "message": "Success", "hasMore": has_more, "items": items}
 
-    def confirm_result(self, payload: ConfirmPayload | Any) -> Dict[str, Any]:
+    def confirm_result(self, payload: ConfirmPayload | Any) -> dict[str, Any]:
         """确认已消费的结果项。"""
 
         session_id, image_ids = parse_confirm_payload(payload)

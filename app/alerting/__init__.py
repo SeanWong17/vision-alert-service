@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from threading import Lock
-from typing import Any, Dict
 
 from app.alerting.config import load_alert_settings
 from app.alerting.pipeline import AlertPipeline
@@ -56,6 +55,7 @@ def reset_runtime() -> None:
 
 
 # ---- FastAPI 依赖注入 ----
+
 
 def _get_service() -> AlertService:
     """FastAPI Depends() 可用的服务依赖。"""

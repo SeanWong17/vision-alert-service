@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import multiprocessing
 import threading
 import time
@@ -112,7 +113,5 @@ class AlertWorker:
         finally:
             with self._inflight_lock:
                 self._inflight_count = max(0, self._inflight_count - 1)
-            try:
+            with contextlib.suppress(ValueError):
                 self._inflight_guard.release()
-            except ValueError:
-                pass

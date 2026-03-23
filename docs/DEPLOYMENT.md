@@ -1,5 +1,7 @@
 # 部署说明
 
+[中文](DEPLOYMENT.md) | [English](DEPLOYMENT.en.md)
+
 ## 1. 依赖安装
 ```bash
 python3 -m pip install -r requirements.txt
@@ -82,7 +84,7 @@ docker compose up -d --build
 ```
 
 容器映射：
-- 容器 `/root/.ai_alerting` -> 宿主 `runtime`
+- 容器 `/root/.vision_alert` -> 宿主 `runtime`
 
 常用环境变量（可在 `docker-compose.yaml` 中配置）：
 

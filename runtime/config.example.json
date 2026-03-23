@@ -14,7 +14,7 @@
 
   "filepath": {
     "__comment_root": "运行根目录；日志、图片、模型目录都基于该目录展开",
-    "root": "/root/.ai_alerting"
+    "root": "/root/.vision_alert"
   },
 
   "server": {

@@ -2,18 +2,18 @@
 
 services:
   # 告警服务
-  ai_alerting:
+  vision_alert:
     build:
       context: ..
       dockerfile: docker/Dockerfile
       target: runtime
-    container_name: ai_alerting_service
+    container_name: vision_alert_service
     restart: unless-stopped
     ports:
       - "8011:8011"
     environment:
       - TZ=Asia/Shanghai
-      - ALERT_CONFIG_PATH=/root/.ai_alerting/config.json
+      - ALERT_CONFIG_PATH=/root/.vision_alert/config.json
       - ALERT_REDIS_HOST=redis
       - ALERT_REDIS_PORT=6379
       - ALERT_WORKER_THREADS=4
@@ -27,7 +27,7 @@ services:
       # - ALERT_SEG_DEVICE=cuda:0
     volumes:
       # 运行目录挂载：日志、上传图、结果图、模型
-      - ../runtime:/root/.ai_alerting
+      - ../runtime:/root/.vision_alert
     depends_on:
       redis:
         condition: service_healthy
@@ -49,26 +49,26 @@ services:
         #     capabilities: [gpu]
 
   # 容器内单元测试：按 profile 显式触发，避免常规 up 时执行
-  ai_alerting_test:
+  vision_alert_test:
     profiles: ["test"]
     build:
       context: ..
       dockerfile: docker/Dockerfile
       target: test
-    container_name: ai_alerting_test_runner
+    container_name: vision_alert_test_runner
     environment:
       - TZ=Asia/Shanghai
       - ALERT_DET_DEVICE=cpu
       - ALERT_SEG_DEVICE=cpu
       - ALERT_CONFIG_STRICT=true
     volumes:
-      - ../runtime:/root/.ai_alerting
+      - ../runtime:/root/.vision_alert
     command: ["python", "-m", "pytest"]
 
   # Redis 队列与结果存储
   redis:
     image: redis:7-alpine
-    container_name: ai_alerting_redis
+    container_name: vision_alert_redis
     restart: unless-stopped
     ports:
       - "6379:6379"

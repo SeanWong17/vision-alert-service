@@ -1,10 +1,12 @@
-# AI Alerting Service
+# Vision Alert Service
+
+[中文](README.md) | [English](README.en.md)
 
 视觉告警服务：基于 YOLO 目标检测与 MMSeg 语义分割，面向“区域入侵 / 危险区域接近”类场景提供同步与异步双模式推理能力。
 
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 
-![AI Alerting demo](docs/assets/demo-alert-result.png)
+![Vision Alert Service demo](docs/assets/demo-alert-result.png)
 
 上图展示了项目的一个典型输出：服务先做目标检测，再结合语义分割掩膜对指定类别做业务后处理，将目标标记为 `enter_segment` 或 `near_segment`，而不是只给出通用检测框。
 
@@ -136,15 +138,15 @@ docker compose up -d --build
 容器运行时会挂载：
 
 - 宿主 `runtime/`
-- 容器 `/root/.ai_alerting`
+- 容器 `/root/.vision_alert`
 
 ## API 概览
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
-| `/api/transmission/upload` | `POST` | 异步上传图片并入队 |
-| `/api/transmission/alarm_result` | `GET` | 拉取异步告警结果 |
-| `/api/transmission/result_confirm` | `POST` | 确认并清理结果 |
+| `/api/jobs/upload` | `POST` | 异步上传图片并入队 |
+| `/api/jobs/alarm_result` | `GET` | 拉取异步告警结果 |
+| `/api/jobs/result_confirm` | `POST` | 确认并清理结果 |
 | `/api/analysis/danger` | `POST` | 同步推理，直接返回结果 |
 | `/healthz` | `GET` | 存活探针 |
 | `/readyz` | `GET` | 就绪探针 |
@@ -218,8 +220,8 @@ ruff check app tests scripts
 ruff format --check app tests scripts
 
 # 构建测试镜像
-docker build -f docker/Dockerfile --target test -t ai-alerting:test .
-docker run --rm -v "$(pwd)/runtime:/root/.ai_alerting" ai-alerting:test
+docker build -f docker/Dockerfile --target test -t vision-alert:test .
+docker run --rm -v "$(pwd)/runtime:/root/.vision_alert" vision-alert:test
 ```
 
 工程侧已经覆盖的点包括：

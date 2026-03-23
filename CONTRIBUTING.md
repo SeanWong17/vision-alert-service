@@ -1,6 +1,8 @@
 # 贡献指南
 
-感谢你愿意改进 AI Alerting Service。
+[中文](CONTRIBUTING.md) | [English](CONTRIBUTING.en.md)
+
+感谢你愿意改进 Vision Alert Service。
 
 ## 开发环境
 

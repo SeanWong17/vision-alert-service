@@ -216,9 +216,8 @@ class AlertServiceTest(unittest.TestCase):
 
         image = DummyUpload("cam_4.jpg", jpeg_bytes(), content_type="image/jpeg")
         tasks = [{"id": 8, "params": {"limit": 0}}]
-        with patch("app.alerting.service.cv2.imwrite", return_value=False):
-            with self.assertRaises(RuntimeError):
-                self.service.analyze_sync(image, "cam_4.jpg", tasks)
+        with patch("app.alerting.service.cv2.imwrite", return_value=False), self.assertRaises(RuntimeError):
+            self.service.analyze_sync(image, "cam_4.jpg", tasks)
 
     def test_submit_async_rejects_forged_image_mime(self):
         """声明为图片但内容非图片时应拒绝。"""

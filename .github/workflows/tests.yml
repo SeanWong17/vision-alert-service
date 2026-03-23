@@ -63,4 +63,4 @@ jobs:
 
       # 仅验证 Dockerfile 能成功构建，不运行容器（CI 环境无模型权重）
       - name: Build Docker image
-        run: docker build -f docker/Dockerfile -t ai-alerting:ci .
+        run: docker build -f docker/Dockerfile -t vision-alert:ci .

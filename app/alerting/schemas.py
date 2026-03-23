@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 class DetectionBox(BaseModel):
     """单个检测框及其分割区域关系特征。"""
 
-    coordinate: List[int] = Field(default_factory=list)
+    coordinate: list[int] = Field(default_factory=list)
     score: float = 0.0
     tagName: str = ""
     alarmTag: str = ""
@@ -25,8 +25,8 @@ class RoiRule(BaseModel):
     """单个 ROI 的告警规则。"""
 
     roiId: str = ""
-    coordinate: List[int] = Field(default_factory=lambda: [-1, -1, -1, -1])
-    classes: List[str] = Field(default_factory=list)
+    coordinate: list[int] = Field(default_factory=lambda: [-1, -1, -1, -1])
+    classes: list[str] = Field(default_factory=list)
     confThreshold: float = 0.5
 
     model_config = {"populate_by_name": True}
@@ -36,7 +36,7 @@ class AlarmTask(BaseModel):
     """标准化后的任务定义。"""
 
     id: Any = None
-    params: Dict[str, Any] = Field(default_factory=dict)
+    params: dict[str, Any] = Field(default_factory=dict)
 
 
 class TaskResult(BaseModel):
@@ -44,7 +44,7 @@ class TaskResult(BaseModel):
 
     id: Any = None
     reserved: str = "0"
-    detail: Dict[str, Any] = Field(default_factory=dict)
+    detail: dict[str, Any] = Field(default_factory=dict)
 
 
 class UploadEnvelope(BaseModel):
@@ -53,7 +53,7 @@ class UploadEnvelope(BaseModel):
     filename: str
     sessionId: str
     timestamp: int = Field(default_factory=lambda: int(time.time() * 1000))
-    fileuuid: Optional[str] = None
+    fileuuid: str | None = None
 
     model_config = {"populate_by_name": True}
 
@@ -65,7 +65,7 @@ class QueueTask(BaseModel):
     session_id: str
     file_name: str
     file_path: str
-    tasks: List[AlarmTask] = Field(default_factory=list)
+    tasks: list[AlarmTask] = Field(default_factory=list)
 
 
 class StoredResult(BaseModel):
@@ -73,7 +73,7 @@ class StoredResult(BaseModel):
 
     imageId: str
     filename: str
-    results: List[Dict[str, Any]] = Field(default_factory=list)
+    results: list[dict[str, Any]] = Field(default_factory=list)
     timestamp: int = Field(default_factory=lambda: int(time.time() * 1000))
 
     model_config = {"populate_by_name": True}
@@ -83,6 +83,6 @@ class ConfirmPayload(BaseModel):
     """结果确认接口的现代请求体。"""
 
     sessionId: str = ""
-    imageIds: List[str] = Field(default_factory=list)
+    imageIds: list[str] = Field(default_factory=list)
 
     model_config = {"populate_by_name": True}

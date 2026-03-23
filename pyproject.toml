@@ -1,5 +1,5 @@
 [project]
-name = "ai-alerting-server"
+name = "vision-alert-service"
 version = "1.0.0"
 description = "视觉告警服务：YOLO 目标检测 + MMSeg 语义分割 + 类别后处理"
 requires-python = ">=3.10"
@@ -47,7 +47,9 @@ ignore = [
     "E501",   # 行长度由 line-length 控制
     "N815",   # 驼峰命名兼容现有 API 字段
     "N802",   # 函数名兼容现有约定
+    "N803",   # 参数名兼容对外 API 字段（FileUpload、sessionId）
     "SIM108", # 三元表达式非必须
+    "B008",   # FastAPI File()/Form()/Depends() 是框架规定写法，非真正的函数调用默认值
 ]
 
 [tool.ruff.lint.isort]

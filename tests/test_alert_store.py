@@ -8,6 +8,7 @@ def _runtime_ready() -> bool:
 
     try:
         import pydantic  # noqa: F401
+
         return True
     except Exception:
         return False
@@ -121,9 +122,11 @@ class AlertStoreTest(unittest.TestCase):
 
             def __getattr__(self, name):
                 method = getattr(self._redis, name)
+
                 def wrapper(*args, **kwargs):
                     self._calls.append((name, args, kwargs))
                     return method(*args, **kwargs)
+
                 return wrapper
 
             def execute(self):
@@ -242,7 +245,10 @@ class AlertStoreTest(unittest.TestCase):
                 if stream_id == "0":
                     return []
                 return [
-                    (stream_key, [("1710000000001-0", {"imageId": "img-2", "payload": json.dumps({"imageId": "img-2"})})])
+                    (
+                        stream_key,
+                        [("1710000000001-0", {"imageId": "img-2", "payload": json.dumps({"imageId": "img-2"})})],
+                    )
                 ]
 
             def xautoclaim(self, **_kwargs):

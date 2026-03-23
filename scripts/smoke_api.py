@@ -60,7 +60,7 @@ def run_async(host: str, port: int, image_path: str) -> None:
     """执行异步上传、拉取与确认全流程。"""
 
     session_id = f"SMOKE_{int(time.time())}"
-    upload_url = build_url(host, port, "/api/transmission/upload")
+    upload_url = build_url(host, port, "/api/jobs/upload")
     mime_type = guess_mime_type(image_path)
 
     with open(image_path, "rb") as fp:
@@ -90,8 +90,8 @@ def run_async(host: str, port: int, image_path: str) -> None:
     upload_res.raise_for_status()
     print("[async upload]", upload_res.json())
 
-    pull_url = build_url(host, port, "/api/transmission/alarm_result")
-    confirm_url = build_url(host, port, "/api/transmission/result_confirm")
+    pull_url = build_url(host, port, "/api/jobs/alarm_result")
+    confirm_url = build_url(host, port, "/api/jobs/result_confirm")
 
     image_ids = []
     for _ in range(30):

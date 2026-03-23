@@ -55,10 +55,10 @@ COPY main.py ./
 COPY pyproject.toml ./
 
 # 预创建运行目录，避免首次启动目录不存在
-RUN mkdir -p /root/.ai_alerting/log \
-    /root/.ai_alerting/images/upload \
-    /root/.ai_alerting/images/result \
-    /root/.ai_alerting/models
+RUN mkdir -p /root/.vision_alert/log \
+    /root/.vision_alert/images/upload \
+    /root/.vision_alert/images/result \
+    /root/.vision_alert/models
 
 EXPOSE 8011
 

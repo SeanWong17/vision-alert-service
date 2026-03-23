@@ -1,8 +1,8 @@
 """HTTP 路由异常语义测试。"""
 
-from contextlib import asynccontextmanager
 import json
 import unittest
+from contextlib import asynccontextmanager
 from unittest.mock import patch
 
 
@@ -12,6 +12,7 @@ def _runtime_ready() -> bool:
     try:
         import fastapi  # noqa: F401
         import httpx  # noqa: F401
+
         return True
     except Exception:
         return False
@@ -51,8 +52,8 @@ class UploadRouteErrorTest(unittest.IsolatedAsyncioTestCase):
 
         import httpx
 
-        from app.application import create_app
         from app.alerting import _get_service
+        from app.application import create_app
 
         class _Worker:
             def start(self):
@@ -98,7 +99,7 @@ class UploadRouteErrorTest(unittest.IsolatedAsyncioTestCase):
                 return {"code": 0}
 
         async with self._new_client(_Service()) as (app, _client):
-            request = self._build_request(app, "/api/transmission/upload")
+            request = self._build_request(app, "/api/jobs/upload")
             handler = app.exception_handlers[AlertingError]
             response = await handler(request, AlertingError(message="bad upload payload"))
 
@@ -117,7 +118,7 @@ class UploadRouteErrorTest(unittest.IsolatedAsyncioTestCase):
                 return {"code": 0}
 
         async with self._new_client(_Service()) as (app, _client):
-            request = self._build_request(app, "/api/transmission/upload")
+            request = self._build_request(app, "/api/jobs/upload")
             handler = app.exception_handlers[Exception]
             response = await handler(request, RuntimeError("boom"))
 

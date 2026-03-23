@@ -19,7 +19,7 @@ async def _run_sync(func, *args):
     return await run_in_threadpool(func, *args)
 
 
-@router.post("/transmission/upload")
+@router.post("/jobs/upload")
 async def upload(
     file: UploadFile = File(...),
     FileUpload: Any = Form(...),
@@ -43,7 +43,7 @@ async def analysis_danger(
     return await _run_sync(service.analyze_sync, image, file_name, tasks)
 
 
-@router.get("/transmission/alarm_result")
+@router.get("/jobs/alarm_result")
 async def alarm_result(
     sessionId: str = Query(None),
     service: AlertService = Depends(_get_service),
@@ -53,7 +53,7 @@ async def alarm_result(
     return await _run_sync(service.get_alarm_result, sessionId)
 
 
-@router.post("/transmission/result_confirm")
+@router.post("/jobs/result_confirm")
 async def result_confirm(
     spec: ConfirmPayload,
     service: AlertService = Depends(_get_service),

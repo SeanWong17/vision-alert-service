@@ -39,7 +39,7 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(entry, ensure_ascii=False)
 
 
-def build_logger(log_dir: str, log_name: str = "ai_alerting.log", level: int = logging.INFO) -> logging.Logger:
+def build_logger(log_dir: str, log_name: str = "vision_alert.log", level: int = logging.INFO) -> logging.Logger:
     """构建并返回可复用 logger，通过 ALERT_LOG_FORMAT 环境变量控制输出格式。
 
     ALERT_LOG_FORMAT=json 时启用 JSON 结构化格式，否则使用传统文本格式。
@@ -50,7 +50,8 @@ def build_logger(log_dir: str, log_name: str = "ai_alerting.log", level: int = l
     except OSError:
         # 日志目录不可写时（如非 root 用户运行默认路径），回退到临时目录。
         import tempfile
-        log_dir = os.path.join(tempfile.gettempdir(), "ai_alerting_log")
+
+        log_dir = os.path.join(tempfile.gettempdir(), "vision_alert_log")
         os.makedirs(log_dir, exist_ok=True)
 
     log = logging.getLogger(log_name)

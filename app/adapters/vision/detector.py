@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, List
+from typing import Any
 
 import numpy as np
 from ultralytics import YOLO
@@ -35,7 +35,7 @@ class YoloDetector:
             verbose=False,
         )[0]
 
-    def predict_boxes(self, image: np.ndarray) -> List[List[Any]]:
+    def predict_boxes(self, image: np.ndarray) -> list[list[Any]]:
         """返回 `[x1, y1, x2, y2, conf, label]` 结构的检测列表。"""
 
         result = self._predict(image)
@@ -47,7 +47,7 @@ class YoloDetector:
         conf = result.boxes.conf.cpu().numpy()
         cls = result.boxes.cls.cpu().numpy()
 
-        outputs: List[List[Any]] = []
+        outputs: list[list[Any]] = []
         for i in range(len(xyxy)):
             x1, y1, x2, y2 = xyxy[i]
             cls_id = int(cls[i])

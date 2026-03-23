@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import threading
 from collections import defaultdict
-from typing import Dict, Tuple
 
 
 class MetricsRegistry:
@@ -15,15 +14,15 @@ class MetricsRegistry:
 
     def __init__(self):
         self._lock = threading.Lock()
-        self._http_requests_total: Dict[Tuple[str, str, int], int] = defaultdict(int)
-        self._http_duration_bucket: Dict[Tuple[str, str, float], int] = defaultdict(int)
-        self._http_duration_sum: Dict[Tuple[str, str], float] = defaultdict(float)
-        self._http_duration_count: Dict[Tuple[str, str], int] = defaultdict(int)
-        self._async_tasks_total: Dict[str, int] = defaultdict(int)
+        self._http_requests_total: dict[tuple[str, str, int], int] = defaultdict(int)
+        self._http_duration_bucket: dict[tuple[str, str, float], int] = defaultdict(int)
+        self._http_duration_sum: dict[tuple[str, str], float] = defaultdict(float)
+        self._http_duration_count: dict[tuple[str, str], int] = defaultdict(int)
+        self._async_tasks_total: dict[str, int] = defaultdict(int)
         # 推理各阶段延迟指标
-        self._inference_duration_sum: Dict[str, float] = defaultdict(float)
-        self._inference_duration_count: Dict[str, int] = defaultdict(int)
-        self._inference_duration_bucket: Dict[Tuple[str, float], int] = defaultdict(int)
+        self._inference_duration_sum: dict[str, float] = defaultdict(float)
+        self._inference_duration_count: dict[str, int] = defaultdict(int)
+        self._inference_duration_bucket: dict[tuple[str, float], int] = defaultdict(int)
 
     def observe_http(self, method: str, path: str, status_code: int, duration_seconds: float) -> None:
         """记录 HTTP 请求计数和延迟分布。"""
@@ -70,13 +69,11 @@ class MetricsRegistry:
             lines.append("# HELP http_requests_total Total HTTP requests.")
             lines.append("# TYPE http_requests_total counter")
             for (method, path, status), value in sorted(self._http_requests_total.items()):
-                lines.append(
-                    f'http_requests_total{{method="{method}",path="{path}",status="{status}"}} {value}'
-                )
+                lines.append(f'http_requests_total{{method="{method}",path="{path}",status="{status}"}} {value}')
 
             lines.append("# HELP http_request_duration_seconds HTTP request latency in seconds.")
             lines.append("# TYPE http_request_duration_seconds histogram")
-            keys = sorted(set((method, path) for method, path, _ in self._http_duration_bucket.keys()))
+            keys = sorted(set((method, path) for method, path, _ in self._http_duration_bucket))
             for method, path in keys:
                 for bucket in self._HTTP_BUCKETS:
                     count = self._http_duration_bucket.get((method, path, bucket), 0)
@@ -100,20 +97,16 @@ class MetricsRegistry:
                 lines.append(f'async_tasks_total{{outcome="{outcome}"}} {value}')
 
             # 推理各阶段耗时直方图
-            inference_stages = sorted(set(s for s, _ in self._inference_duration_bucket.keys()))
+            inference_stages = sorted(set(s for s, _ in self._inference_duration_bucket))
             if inference_stages:
                 lines.append("# HELP inference_duration_seconds Inference stage latency in seconds.")
                 lines.append("# TYPE inference_duration_seconds histogram")
                 for stage in inference_stages:
                     for bucket in self._INFERENCE_BUCKETS:
                         count = self._inference_duration_bucket.get((stage, bucket), 0)
-                        lines.append(
-                            f'inference_duration_seconds_bucket{{stage="{stage}",le="{bucket}"}} {count}'
-                        )
+                        lines.append(f'inference_duration_seconds_bucket{{stage="{stage}",le="{bucket}"}} {count}')
                     inf_count = self._inference_duration_bucket.get((stage, float("inf")), 0)
-                    lines.append(
-                        f'inference_duration_seconds_bucket{{stage="{stage}",le="+Inf"}} {inf_count}'
-                    )
+                    lines.append(f'inference_duration_seconds_bucket{{stage="{stage}",le="+Inf"}} {inf_count}')
                     lines.append(
                         f'inference_duration_seconds_sum{{stage="{stage}"}} {self._inference_duration_sum.get(stage, 0.0)}'
                     )

@@ -14,7 +14,7 @@
 
   "filepath": {
     "__comment_root": "运行根目录；日志、图片、模型目录都基于该目录展开",
-    "root": "/root/.ai_alerting"
+    "root": "/root/.vision_alert"
   },
 
   "server": {
@@ -91,9 +91,9 @@
     "__comment_enabled": "是否启用启动期 license 校验",
     "enabled": false,
     "__comment_license_path": "license 文件路径（容器内路径）",
-    "license_path": "/root/.ai_alerting/license/license.json",
+    "license_path": "/root/.vision_alert/license/license.json",
     "__comment_public_key_path": "Ed25519 公钥路径（容器内路径）",
-    "public_key_path": "/root/.ai_alerting/license/public_key.pem",
+    "public_key_path": "/root/.vision_alert/license/public_key.pem",
     "__comment_fail_open": "校验失败时是否放行启动（true=放行，false=阻止启动）",
     "fail_open": false,
     "__comment_require_machine_binding": "是否强制设备绑定（校验 machineId）",

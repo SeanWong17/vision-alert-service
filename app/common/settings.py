@@ -18,7 +18,7 @@ from threading import Lock
 from pydantic import AliasChoices, BaseModel, Field
 
 HOME_PATH = op.expanduser("~")
-APP_HOME = op.join(HOME_PATH, ".ai_alerting")
+APP_HOME = op.join(HOME_PATH, ".vision_alert")
 LEGACY_CONFIG_PATH = op.join(APP_HOME, "config.json")
 RUNTIME_CONFIG_PATH = op.abspath(op.join(op.dirname(__file__), "..", "..", "runtime", "config.json"))
 DEFAULT_CONFIG_PATH = os.getenv(
@@ -146,7 +146,7 @@ class ConfigLoader:
         if not os.path.exists(path):
             return AppConfig()
         try:
-            with open(path, "r", encoding="utf-8") as fp:
+            with open(path, encoding="utf-8") as fp:
                 return AppConfig(**json.load(fp))
         except Exception as exc:
             message = f"failed to load config file {path}: {exc}"
@@ -275,14 +275,18 @@ def load_alert_settings() -> AlertSettings:
         detector_device=os.getenv("ALERT_DET_DEVICE", alert_cfg.detector_device),
         segmentor_device=os.getenv("ALERT_SEG_DEVICE", alert_cfg.segmentor_device),
         segmentor_target_class_ids=tuple(int(v) for v in alert_cfg.segmentor_target_class_ids),
-        segment_postprocess_class_names=tuple(str(v).strip().lower() for v in alert_cfg.segment_postprocess_class_names if str(v).strip()),
+        segment_postprocess_class_names=tuple(
+            str(v).strip().lower() for v in alert_cfg.segment_postprocess_class_names if str(v).strip()
+        ),
         queue_name=alert_cfg.queue_name,
         pending_key_prefix=alert_cfg.pending_key_prefix,
         result_key_prefix=alert_cfg.result_key_prefix,
         result_stream_prefix=alert_cfg.result_stream_prefix,
         result_ack_prefix=alert_cfg.result_ack_prefix,
         result_group_prefix=alert_cfg.result_group_prefix,
-        result_claim_idle_ms=max(1000, int(os.getenv("ALERT_RESULT_CLAIM_IDLE_MS", str(alert_cfg.result_claim_idle_ms)))),
+        result_claim_idle_ms=max(
+            1000, int(os.getenv("ALERT_RESULT_CLAIM_IDLE_MS", str(alert_cfg.result_claim_idle_ms)))
+        ),
         upload_max_bytes=max(1024 * 1024, int(os.getenv("ALERT_UPLOAD_MAX_BYTES", str(alert_cfg.upload_max_bytes)))),
         allowed_image_types=tuple(alert_cfg.allowed_image_types),
         image_retention_days=max(1, int(os.getenv("ALERT_IMAGE_RETENTION_DAYS", str(alert_cfg.image_retention_days)))),

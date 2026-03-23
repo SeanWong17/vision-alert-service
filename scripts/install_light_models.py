@@ -17,7 +17,6 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-
 MMSEG_RAW_BASE = "https://raw.githubusercontent.com/open-mmlab/mmsegmentation/main/"
 DEFAULT_MODEL_ROOT = "runtime/models"
 
@@ -99,10 +98,12 @@ def _download_binary(url: str, dest: Path, timeout: int = 120, retries: int = 3)
     last_error: Exception | None = None
     for attempt in range(1, retries + 1):
         try:
-            with urllib.request.urlopen(url, timeout=timeout) as response:
-                with tempfile.NamedTemporaryFile("wb", delete=False, dir=str(dest.parent)) as tmp:
-                    shutil.copyfileobj(response, tmp)
-                    tmp_path = Path(tmp.name)
+            with (
+                urllib.request.urlopen(url, timeout=timeout) as response,
+                tempfile.NamedTemporaryFile("wb", delete=False, dir=str(dest.parent)) as tmp,
+            ):
+                shutil.copyfileobj(response, tmp)
+                tmp_path = Path(tmp.name)
             tmp_path.replace(dest)
             return
         except Exception as exc:  # pragma: no cover - network instability

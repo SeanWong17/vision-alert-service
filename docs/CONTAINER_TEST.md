@@ -1,5 +1,7 @@
 # 容器启动与测试说明
 
+[中文](CONTAINER_TEST.md) | [English](CONTAINER_TEST.en.md)
+
 本文档用于“本机有 GPU，不使用 conda，直接用容器测试”的场景。
 
 ## 1. 准备模型与配置
@@ -22,15 +24,15 @@ python3 scripts/install_light_models.py --model-root runtime/models --packs nano
 
 ```bash
 cd docker
-docker compose --profile test build ai_alerting_test
-docker compose --profile test run --rm ai_alerting_test
+docker compose --profile test build vision_alert_test
+docker compose --profile test run --rm vision_alert_test
 ```
 
 如果只想直接构建测试镜像，也可以在仓库根目录执行：
 
 ```bash
-docker build -f docker/Dockerfile --target test -t ai-alerting:test .
-docker run --rm -v "$(pwd)/runtime:/root/.ai_alerting" ai-alerting:test
+docker build -f docker/Dockerfile --target test -t vision-alert:test .
+docker run --rm -v "$(pwd)/runtime:/root/.vision_alert" vision-alert:test
 ```
 
 说明：

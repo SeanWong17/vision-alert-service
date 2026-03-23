@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import multiprocessing
 import time
 import types
@@ -16,6 +17,7 @@ def _runtime_ready() -> bool:
 
     try:
         import pydantic  # noqa: F401
+
         return True
     except Exception:
         return False
@@ -56,10 +58,8 @@ class TestAlertWorkerLifecycle(unittest.TestCase):
 
     def tearDown(self):
         """确保测试结束后 worker 被停止，避免线程泄漏。"""
-        try:
+        with contextlib.suppress(Exception):
             self.worker.stop()
-        except Exception:
-            pass
 
     # ------------------------------------------------------------------
     # 启动幂等性

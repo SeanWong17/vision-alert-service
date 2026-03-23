@@ -8,7 +8,6 @@ import socket
 import threading
 import time
 from collections import defaultdict, deque
-from typing import Dict, List, Optional, Tuple
 
 from app.alerting.config import AlertSettings
 from app.alerting.schemas import QueueTask, StoredResult
@@ -40,8 +39,8 @@ class AlertStore:
 
         # 内存回退结构：仅适合单进程开发联调。
         self._queue: deque[str] = deque()
-        self._pending: Dict[str, Dict[str, str]] = defaultdict(dict)
-        self._results: Dict[str, Dict[str, str]] = defaultdict(dict)
+        self._pending: dict[str, dict[str, str]] = defaultdict(dict)
+        self._results: dict[str, dict[str, str]] = defaultdict(dict)
         self._dead_letters: deque[str] = deque(maxlen=max(100, int(self.settings.dead_letter_maxlen)))
 
         self.redis = None
@@ -122,7 +121,7 @@ class AlertStore:
         with self._lock:
             return len(self._dead_letters)
 
-    def pop(self) -> Optional[QueueTask]:
+    def pop(self) -> QueueTask | None:
         """弹出一个待处理任务。"""
 
         if self.redis:
@@ -134,7 +133,7 @@ class AlertStore:
                 return None
             return QueueTask(**json.loads(self._queue.popleft()))
 
-    def get_pending(self, session_id: str, image_id: str) -> Optional[QueueTask]:
+    def get_pending(self, session_id: str, image_id: str) -> QueueTask | None:
         """读取 pending 中的任务快照。"""
 
         if self.redis:
@@ -161,7 +160,7 @@ class AlertStore:
             self._results[session_id][image_id] = payload
             self._pending[session_id].pop(image_id, None)
 
-    def fetch_results(self, session_id: str, limit: int = 50) -> Tuple[List[dict], bool]:
+    def fetch_results(self, session_id: str, limit: int = 50) -> tuple[list[dict], bool]:
         """批量拉取结果并从存储中移除已拉取项。"""
 
         if self.redis:
@@ -170,7 +169,7 @@ class AlertStore:
             ack_key = self._result_ack_key(session_id)
             safe_limit = max(1, int(limit))
             self._ensure_result_group(stream_key, group_name)
-            rows: List[dict] = []
+            rows: list[dict] = []
 
             def _consume(resp_items) -> None:
                 # 把 stream entry 转为业务行，同时记录 imageId -> entryId，
@@ -210,10 +209,9 @@ class AlertStore:
                     claim_resp = None
 
                 claimed_entries = []
-                if claim_resp:
+                if claim_resp and isinstance(claim_resp, (list, tuple)) and len(claim_resp) >= 2:
                     # redis-py 兼容：返回 (next_start, entries) 或 (next_start, entries, deleted_ids)
-                    if isinstance(claim_resp, (list, tuple)) and len(claim_resp) >= 2:
-                        claimed_entries = claim_resp[1] or []
+                    claimed_entries = claim_resp[1] or []
                 if claimed_entries:
                     _consume([(stream_key, claimed_entries)])
 
@@ -253,7 +251,7 @@ class AlertStore:
                 rows.append(json.loads(image_map[image_id]))
             return rows, has_more
 
-    def confirm_results(self, session_id: str, image_ids: List[str]) -> None:
+    def confirm_results(self, session_id: str, image_ids: list[str]) -> None:
         """确认结果并删除对应记录。"""
 
         if self.redis:

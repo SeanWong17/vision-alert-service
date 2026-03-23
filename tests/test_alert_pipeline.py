@@ -1,7 +1,8 @@
 """告警流水线后处理测试。"""
 
-import numpy as np
 import unittest
+
+import numpy as np
 
 
 def _runtime_ready() -> bool:
@@ -10,6 +11,7 @@ def _runtime_ready() -> bool:
     try:
         import cv2  # noqa: F401
         import numpy  # noqa: F401
+
         return True
     except Exception:
         return False

@@ -6,7 +6,7 @@ import os
 import time
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple
+from typing import TYPE_CHECKING, Any
 
 import cv2
 import numpy as np
@@ -15,6 +15,7 @@ from app.alerting.config import AlertSettings
 from app.alerting.schemas import AlarmTask, DetectionBox, RoiRule, TaskResult
 from app.common.logging import logger
 from app.common.metrics import metrics
+
 if TYPE_CHECKING:
     from app.adapters.vision.detector import YoloDetector
     from app.adapters.vision.segmentor import MmsegSegmentor
@@ -24,11 +25,11 @@ if TYPE_CHECKING:
 class InferenceOutcome:
     """单张图片推理的统一输出结构。"""
 
-    detections: List[DetectionBox]
+    detections: list[DetectionBox]
     rendered_image: np.ndarray
     image_width: int
     image_height: int
-    timing_ms: Dict[str, float] = field(default_factory=dict)
+    timing_ms: dict[str, float] = field(default_factory=dict)
 
 
 class AlertPipeline:
@@ -45,7 +46,7 @@ class AlertPipeline:
         self._segmentor: MmsegSegmentor | None = None
         self._load_lock = Lock()
 
-    def _model_paths(self) -> Tuple[str, str, str]:
+    def _model_paths(self) -> tuple[str, str, str]:
         """拼接检测/分割权重与配置文件路径。"""
 
         root = self.settings.model_root
@@ -120,7 +121,7 @@ class AlertPipeline:
                 return "near_segment"
         return tag_name
 
-    def _to_detection_boxes(self, raw_det: List[List[Any]], seg_mask: np.ndarray) -> List[DetectionBox]:
+    def _to_detection_boxes(self, raw_det: list[list[Any]], seg_mask: np.ndarray) -> list[DetectionBox]:
         """将原始检测结果映射为带分割区域关系特征的检测框。"""
 
         seg_mask = seg_mask[:, :, 0] if seg_mask.ndim == 3 else seg_mask
@@ -128,7 +129,7 @@ class AlertPipeline:
         dist_map = self._distance_to_segment_map(seg_mask)
         height, width = seg_mask.shape[:2]
 
-        boxes: List[DetectionBox] = []
+        boxes: list[DetectionBox] = []
         for x1, y1, x2, y2, score, label in raw_det:
             x1, y1 = max(0, int(x1)), max(0, int(y1))
             x2, y2 = min(width, int(x2)), min(height, int(y2))
@@ -158,13 +159,13 @@ class AlertPipeline:
         return boxes
 
     @staticmethod
-    def _is_full_image_roi(roi: List[int]) -> bool:
+    def _is_full_image_roi(roi: list[int]) -> bool:
         """判断是否为全图 ROI 哨兵值。"""
 
         return len(roi) >= 4 and roi[0] == -1 and roi[1] == -1 and roi[2] == -1 and roi[3] == -1
 
     @staticmethod
-    def _normalize_roi_to_image(roi: List[int], image_width: int, image_height: int) -> List[int]:
+    def _normalize_roi_to_image(roi: list[int], image_width: int, image_height: int) -> list[int]:
         """将 ROI 归一化到图像边界范围内。"""
 
         if len(roi) < 4:
@@ -183,7 +184,7 @@ class AlertPipeline:
         return [x1, y1, x2, y2]
 
     @staticmethod
-    def _bbox_intersects_roi(bbox: List[int], roi: List[int]) -> bool:
+    def _bbox_intersects_roi(bbox: list[int], roi: list[int]) -> bool:
         """判断检测框与 ROI 是否相交。"""
 
         x1, y1, x2, y2 = bbox
@@ -194,17 +195,17 @@ class AlertPipeline:
 
     def _filter_targets_for_roi(
         self,
-        detections: List[DetectionBox],
+        detections: list[DetectionBox],
         roi_rule: RoiRule,
         image_width: int,
         image_height: int,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """按 ROI、类别、阈值筛选告警目标。"""
 
         roi = self._normalize_roi_to_image(list(roi_rule.coordinate), image_width, image_height)
 
         class_set = {c.lower() for c in roi_rule.classes if c}
-        targets: List[Dict[str, Any]] = []
+        targets: list[dict[str, Any]] = []
         for det in detections:
             if det.score < roi_rule.confThreshold:
                 continue
@@ -220,7 +221,7 @@ class AlertPipeline:
         self,
         image: np.ndarray,
         seg_mask: np.ndarray,
-        all_boxes: List[DetectionBox],
+        all_boxes: list[DetectionBox],
     ) -> np.ndarray:
         """绘制分割掩膜和检测框，输出标注图。"""
 
@@ -263,7 +264,7 @@ class AlertPipeline:
         return canvas
 
     @staticmethod
-    def _timing_ms(t0: float, t1: float, t2: float, t3: float, t_start: float) -> Dict[str, float]:
+    def _timing_ms(t0: float, t1: float, t2: float, t3: float, t_start: float) -> dict[str, float]:
         """将推理各阶段耗时统一转换为毫秒。"""
 
         return {
@@ -273,7 +274,7 @@ class AlertPipeline:
             "total": round((t3 - t_start) * 1000, 2),
         }
 
-    def run(self, image_path: str, tasks: List[AlarmTask]) -> InferenceOutcome:
+    def run(self, image_path: str, tasks: list[AlarmTask]) -> InferenceOutcome:
         """执行一次完整推理流程。"""
 
         t_start = time.monotonic()
@@ -308,7 +309,7 @@ class AlertPipeline:
             timing_ms=self._timing_ms(t0, t1, t2, t3, t_start),
         )
 
-    def run_from_buffer(self, image_bytes: bytes, tasks: List[AlarmTask]) -> InferenceOutcome:
+    def run_from_buffer(self, image_bytes: bytes, tasks: list[AlarmTask]) -> InferenceOutcome:
         """从内存字节流执行推理，避免写盘再读取的 I/O 往返。"""
 
         t_start = time.monotonic()
@@ -344,17 +345,17 @@ class AlertPipeline:
             timing_ms=self._timing_ms(t0, t1, t2, t3, t_start),
         )
 
-    def build_task_results(self, tasks: List[AlarmTask], outcome: InferenceOutcome) -> List[TaskResult]:
+    def build_task_results(self, tasks: list[AlarmTask], outcome: InferenceOutcome) -> list[TaskResult]:
         """将推理结果映射为对外任务结果格式（含 ROI 维度告警详情）。"""
 
-        results: List[TaskResult] = []
+        results: list[TaskResult] = []
         for task in tasks:
             rois_raw = task.params.get("rois", [])
             roi_rules = [RoiRule(**item) for item in rois_raw] if isinstance(rois_raw, list) else []
             if not roi_rules:
                 roi_rules = [RoiRule(coordinate=[-1, -1, -1, -1], classes=[], confThreshold=0.5)]
 
-            roi_results: List[Dict[str, Any]] = []
+            roi_results: list[dict[str, Any]] = []
             total_targets = 0
             for roi_rule in roi_rules:
                 targets = self._filter_targets_for_roi(
@@ -367,7 +368,9 @@ class AlertPipeline:
                 roi_results.append(
                     {
                         "roiId": roi_rule.roiId,
-                        "coordinate": self._normalize_roi_to_image(list(roi_rule.coordinate), outcome.image_width, outcome.image_height),
+                        "coordinate": self._normalize_roi_to_image(
+                            list(roi_rule.coordinate), outcome.image_width, outcome.image_height
+                        ),
                         "classes": roi_rule.classes,
                         "confThreshold": roi_rule.confThreshold,
                         "targetCount": len(targets),
