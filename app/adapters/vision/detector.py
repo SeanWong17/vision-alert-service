@@ -54,5 +54,5 @@ class YoloDetector:
             label = names.get(cls_id, str(cls_id)) if isinstance(names, dict) else str(cls_id)
             outputs.append([int(x1), int(y1), int(x2), int(y2), round(float(conf[i]), 4), label])
 
-        logger.info("detector outputs=%d", len(outputs))
+        logger.debug("detector outputs=%d", len(outputs))
         return outputs
