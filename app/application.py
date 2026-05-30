@@ -57,7 +57,7 @@ def create_app() -> FastAPI:
         started_at = datetime.now().astimezone().isoformat(timespec="milliseconds")
         token = bind_request_id(request_id)
 
-        start = time.time()
+        start = time.perf_counter()
         logger.info(
             "request started method=%s path=%s request_id=%s started_at=%s",
             request.method,
@@ -69,7 +69,7 @@ def create_app() -> FastAPI:
         try:
             response = await call_next(request)
         except Exception:
-            elapsed = time.time() - start
+            elapsed = time.perf_counter() - start
             finished_at = datetime.now().astimezone().isoformat(timespec="milliseconds")
             metrics.observe_http(request.method, path, status.HTTP_500_INTERNAL_SERVER_ERROR, elapsed)
             logger.info(
@@ -86,7 +86,7 @@ def create_app() -> FastAPI:
             reset_request_id(token)
             raise
 
-        elapsed = time.time() - start
+        elapsed = time.perf_counter() - start
         finished_at = datetime.now().astimezone().isoformat(timespec="milliseconds")
         response.headers["X-Process-Time"] = str(elapsed)
         response.headers["X-Request-ID"] = request_id
