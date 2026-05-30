@@ -45,6 +45,9 @@ class AlertPipeline:
         self._detector: YoloDetector | None = None
         self._segmentor: MmsegSegmentor | None = None
         self._load_lock = Lock()
+        self._segment_class_set: frozenset[str] = frozenset(
+            name.strip().lower() for name in settings.segment_postprocess_class_names
+        )
 
     def _model_paths(self) -> tuple[str, str, str]:
         """拼接检测/分割权重与配置文件路径。"""
@@ -106,8 +109,7 @@ class AlertPipeline:
     def _uses_segment_postprocess(self, label: str) -> bool:
         """判断检测类别是否启用分割后处理。"""
 
-        configured = {name.strip().lower() for name in self.settings.segment_postprocess_class_names}
-        return (label or "").strip().lower() in configured
+        return (label or "").strip().lower() in self._segment_class_set
 
     def _derive_alarm_tag(self, tag_name: str, overlap_ratio: float, distance: float) -> str:
         """根据后处理规则生成告警标签。"""
