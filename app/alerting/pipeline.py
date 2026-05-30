@@ -164,7 +164,7 @@ class AlertPipeline:
     def _is_full_image_roi(roi: list[int]) -> bool:
         """判断是否为全图 ROI 哨兵值。"""
 
-        return len(roi) >= 4 and roi[0] == -1 and roi[1] == -1 and roi[2] == -1 and roi[3] == -1
+        return roi[:4] == [-1, -1, -1, -1]
 
     @staticmethod
     def _normalize_roi_to_image(roi: list[int], image_width: int, image_height: int) -> list[int]:
