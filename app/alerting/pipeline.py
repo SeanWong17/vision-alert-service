@@ -274,14 +274,10 @@ class AlertPipeline:
             "total": round((t3 - t_start) * 1000, 2),
         }
 
-    def run(self, image_path: str, tasks: list[AlarmTask]) -> InferenceOutcome:
-        """执行一次完整推理流程。"""
+    def _infer(self, image: np.ndarray) -> InferenceOutcome:
+        """执行检测 + 分割 + 后处理 + 渲染的核心推理流程。"""
 
         t_start = time.monotonic()
-        self._ensure_models()
-        image = cv2.imread(image_path)
-        if image is None:
-            raise RuntimeError(f"failed to read image: {image_path}")
 
         t0 = time.monotonic()
         raw_det = self._detector.predict_boxes(image)
@@ -309,41 +305,24 @@ class AlertPipeline:
             timing_ms=self._timing_ms(t0, t1, t2, t3, t_start),
         )
 
+    def run(self, image_path: str, tasks: list[AlarmTask]) -> InferenceOutcome:
+        """执行一次完整推理流程。"""
+
+        self._ensure_models()
+        image = cv2.imread(image_path)
+        if image is None:
+            raise RuntimeError(f"failed to read image: {image_path}")
+        return self._infer(image)
+
     def run_from_buffer(self, image_bytes: bytes, tasks: list[AlarmTask]) -> InferenceOutcome:
         """从内存字节流执行推理，避免写盘再读取的 I/O 往返。"""
 
-        t_start = time.monotonic()
         self._ensure_models()
         buf = np.frombuffer(image_bytes, dtype=np.uint8)
         image = cv2.imdecode(buf, cv2.IMREAD_COLOR)
         if image is None:
             raise RuntimeError("failed to decode image from buffer")
-
-        t0 = time.monotonic()
-        raw_det = self._detector.predict_boxes(image)
-        t1 = time.monotonic()
-        metrics.observe_inference("detection", t1 - t0)
-
-        seg_mask = self._segmentor.predict_mask(image)
-        t2 = time.monotonic()
-        metrics.observe_inference("segmentation", t2 - t1)
-
-        detections = self._to_detection_boxes(raw_det, seg_mask)
-
-        seg_mask_binary = (seg_mask > 0).astype(np.uint8)
-        height, width = image.shape[:2]
-        rendered = self._draw_render(image, seg_mask_binary, detections)
-        t3 = time.monotonic()
-        metrics.observe_inference("postprocess", t3 - t2)
-        metrics.observe_inference("total", t3 - t_start)
-
-        return InferenceOutcome(
-            detections=detections,
-            rendered_image=rendered,
-            image_width=width,
-            image_height=height,
-            timing_ms=self._timing_ms(t0, t1, t2, t3, t_start),
-        )
+        return self._infer(image)
 
     def build_task_results(self, tasks: list[AlarmTask], outcome: InferenceOutcome) -> list[TaskResult]:
         """将推理结果映射为对外任务结果格式（含 ROI 维度告警详情）。"""
